@@ -36,7 +36,10 @@ export default function Login({
         <div className="mb-4 text-sm font-medium text-green-600">{status}</div>
       )}
 
-      <form onSubmit={submit}>
+      <form
+        onSubmit={submit}
+        className="border  border-gray-300 p-10 rounded-lg"
+      >
         <div>
           <InputLabel htmlFor="email" value="Email" />
 
@@ -91,7 +94,7 @@ export default function Login({
             </Link>
           )}
 
-          <PrimaryButton className="ms-4" disabled={processing}>
+          <PrimaryButton className="ms-4 bg-primary" disabled={processing}>
             Log in
           </PrimaryButton>
         </div>

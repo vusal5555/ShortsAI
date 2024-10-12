@@ -27,7 +27,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/create-new', [VideoController::class, 'index'])->name('/create-new');
 
     Route::post('/generate-video-script', [VideoController::class, 'generateVideoScript'])->name('/generate-video-script');
-    Route::post('/generate-audio', [VideoController::class, 'generateAudio'])->name('/generate-video-script');
+    Route::post('/generate-audio-transcript', [VideoController::class, 'generateAudioAndTranscript'])->name('/generate-audio-transcript');
+    Route::post('/generate-images', [VideoController::class, 'generateImages'])->name('/generate-images');
+
+    Route::post('/generate-video', [VideoController::class, 'generateVideo'])->name('/generate-video');
 });
 
 require __DIR__ . '/auth.php';

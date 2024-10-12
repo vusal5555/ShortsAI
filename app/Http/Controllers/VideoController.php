@@ -12,7 +12,14 @@ use Google\Cloud\TextToSpeech\V1\TextToSpeechClient;
 use Google\Cloud\TextToSpeech\V1\VoiceSelectionParams;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Kreait\Firebase\Database;
+use Kreait\Firebase\Factory; // Firebase Factory for storage
+use Kreait\Laravel\Firebase\Facades\Firebase;
+use Log;
+use SabatinoMasala\Replicate\Replicate;
+use Str;
 
 class VideoController extends Controller
 {
@@ -94,13 +101,81 @@ class VideoController extends Controller
         return response()->json($response);
     }
 
-    public function generateAudio(Request $request)
+    private function uploadFile($api_key, $path)
+    {
+        $url = 'https://api.assemblyai.com/v2/upload';
+        $data = file_get_contents($path);
+
+        $options = [
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-type: application/octet-stream\r\nAuthorization: $api_key",
+                'content' => $data,
+            ],
+        ];
+
+        $context = stream_context_create($options);
+        $response = file_get_contents($url, false, $context);
+
+        if ($http_response_header[0] == 'HTTP/1.1 200 OK') {
+            $json = json_decode($response, true);
+            return $json['upload_url'];
+        } else {
+            throw new Exception("Error: " . $http_response_header[0] . " - $response");
+        }
+    }
+
+    /**
+     * Create a transcript using AssemblyAI API.
+     */
+    private function createTranscript($api_key, $audio_url)
+    {
+        $url = "https://api.assemblyai.com/v2/transcript";
+
+        $headers = [
+            "authorization: " . $api_key,
+            "content-type: application/json",
+        ];
+
+        $data = [
+            "audio_url" => $audio_url,
+        ];
+
+        $curl = curl_init($url);
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+
+        $response = json_decode(curl_exec($curl), true);
+        curl_close($curl);
+
+        $transcript_id = $response['id'];
+        $polling_endpoint = "https://api.assemblyai.com/v2/transcript/" . $transcript_id;
+
+        while (true) {
+            $polling_response = curl_init($polling_endpoint);
+            curl_setopt($polling_response, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($polling_response, CURLOPT_RETURNTRANSFER, true);
+
+            $transcription_result = json_decode(curl_exec($polling_response), true);
+
+            if ($transcription_result['status'] === "completed") {
+                return $transcription_result;
+            } else if ($transcription_result['status'] === "error") {
+                throw new Exception("Transcription failed: " . $transcription_result['error']);
+            } else {
+                sleep(3);
+            }
+        }
+    }
+
+    public function generateAudioAndTranscript(Request $request)
     {
         // Set the path to your Google Cloud credentials file
         $credentialsPath = __DIR__ . '/../../../credentials/nodal-algebra-438115-c2-97609a31c69d.json';
 
         if (file_exists($credentialsPath)) {
-            echo "Found credentials file at: " . $credentialsPath . "\n";
             putenv("GOOGLE_APPLICATION_CREDENTIALS=" . $credentialsPath);
         } else {
             die("Credentials file not found at: " . $credentialsPath . "\n");
@@ -131,11 +206,40 @@ class VideoController extends Controller
             // Call the Text-to-Speech API
             $resp = $textToSpeechClient->synthesizeSpeech($input, $voice, $audioConfig);
 
-            // Save the synthesized audio to a file
-            file_put_contents('test.mp3', $resp->getAudioContent());
+            // Save the synthesized audio to a temporary file
+            $audioFilePath = storage_path('app/public/test.mp3');
+            file_put_contents($audioFilePath, $resp->getAudioContent());
 
-            // Optionally, return a success response
-            return response()->json(['message' => 'Audio generated successfully.'], 200);
+            // Upload the audio file to Firebase Storage
+            $firebaseStorage = Firebase::storage();
+            $bucket = $firebaseStorage->getBucket();
+
+            $firebaseFilePath = 'audios/test_' . $id . '.mp3'; // Path in Firebase Storage
+            $file = fopen($audioFilePath, 'r');
+            $bucket->upload($file, ['name' => $firebaseFilePath]);
+
+            // Get the public URL of the uploaded file
+            $fileReference = $bucket->object($firebaseFilePath);
+            $fileUrl = $fileReference->signedUrl(new \DateTime('tomorrow')); // Signed URL valid for a day
+
+            // Optionally store the file URL in Firebase Database
+            $database = Firebase::database();
+            $database->getReference('audio_files/' . $id)->set([
+                'url' => $fileUrl,
+                'created_at' => now(),
+            ]);
+
+            // Call AssemblyAI for transcription
+            $assemblyApiKey = env('ASSEMBLYAI_API_KEY'); // Make sure to set this in your .env
+            $uploadUrl = $this->uploadFile($assemblyApiKey, $audioFilePath);
+            $transcript = $this->createTranscript($assemblyApiKey, $uploadUrl);
+
+            // Optionally return the transcript along with the audio URL
+            return response()->json([
+                'message' => 'Audio generated, uploaded, and transcribed successfully.',
+                'url' => $fileUrl,
+                'transcript' => $transcript['words'] ?? 'No transcript available.',
+            ], 200);
 
         } catch (Exception $e) {
             // Handle any exceptions that occur
@@ -147,12 +251,125 @@ class VideoController extends Controller
             }
         }
     }
+
+    public function generateImages(Request $request)
+    {
+        $replicateApiToken = env('REPLICATE_API_TOKEN'); // Ensure your token is set in .env
+
+        $client = new Replicate($replicateApiToken);
+
+        // Validate and retrieve the prompt from the request
+        $prompt = $request->input('prompt');
+
+        try {
+            $output = $client->run(
+                'bytedance/sdxl-lightning-4step:5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637',
+                [
+                    'input' => [
+                        'prompt' => $prompt,
+                        'width' => 1024,
+                        'height' => 1280,
+                        'num_outputs' => 1,
+                    ],
+                    'webhook' => 'https://webhook.site/your-webhook-url',
+                ]
+            );
+
+            // Assume the output contains an image URL, download it
+            $imageUrl = $output[0]; // Adjust if needed
+
+            // Download the image and convert it to Base64
+            $imageContent = file_get_contents($imageUrl);
+            $base64Image = base64_encode($imageContent);
+
+            // Decode the Base64 image back to binary for Firebase upload
+            $decodedImage = base64_decode($base64Image);
+
+            // Initialize Firebase Storage
+            $firebase = (new Factory())
+                ->withServiceAccount(base_path('credentials/shortsai-b68d2-07e3adafa0c4.json'));
+
+            $storage = $firebase->createStorage();
+            $bucket = $storage->getBucket();
+
+            // Generate a unique filename
+            $filename = 'images/' . Str::uuid() . '.png';
+
+            // Upload the decoded PNG image to Firebase Storage
+            $bucket->upload($decodedImage, [
+                'name' => $filename,
+                'metadata' => [
+                    'contentType' => 'image/png',
+                ],
+            ]);
+
+            // Generate a signed download URL
+            $imageReference = $bucket->object($filename);
+            $expiresAt = new \DateTime('+1 hour'); // Adjust the expiry time as needed
+            $imageUrl = $imageReference->signedUrl($expiresAt);
+
+            // Return a JSON response with the Firebase URL
+            return response()->json([
+                'result' => $imageUrl,
+            ]);
+        } catch (\Exception $e) {
+            // Log the error
+            Log::error('Replicate API Error: ' . $e->getMessage());
+
+            // Return a JSON error response with status code 500
+            return response()->json([
+                'error' => 'An error occurred while generating the image.',
+                'message' => $e->getMessage(), // Optional: Include error message for debugging
+            ], 500);
+        }
+    }
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function generateVideo(Request $request)
     {
-        //
+        try {
+
+            // Decode the incoming JSON data from the request
+            $videoData = json_decode($request->input('videoData'), true);
+
+            // Validate the decoded data
+            if (!$videoData) {
+                return response()->json(['message' => 'Invalid JSON data'], 422);
+            }
+            // Validate the incoming request
+            $request->validate([
+                'video_audio' => 'required|string',
+                'video_images' => 'required|array',
+                'video_images.*' => 'url',
+                'video_script' => 'required|array',
+                'video_script.*.imagePrompt' => 'string',
+                'video_script.*.contextText' => 'string',
+                'video_transcript' => 'required|array',
+                'video_transcript.*.text' => 'required|string',
+                'video_transcript.*.start' => 'required|number',
+                'video_transcript.*.end' => 'required|number',
+                'video_transcript.*.confidence' => 'required|number',
+            ]);
+
+            // Extract validated data
+            $videoData = $request->only([
+                'video_audio', 'video_images', 'video_script', 'video_transcript',
+            ]);
+
+            // Save video to the database
+            $video = Video::create(array_merge($videoData, [
+                'user_id' => auth()->id(),
+            ]));
+
+            return response()->json(['message' => 'Video saved successfully', 'video' => $video], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Error saving video data', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Error saving video data', 'error' => $e->getMessage()], 500);
+        }
     }
 
     /**
