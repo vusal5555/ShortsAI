@@ -220,7 +220,7 @@ class VideoController extends Controller
 
             // Get the public URL of the uploaded file
             $fileReference = $bucket->object($firebaseFilePath);
-            $fileUrl = $fileReference->signedUrl(new \DateTime('tomorrow')); // Signed URL valid for a day
+            $fileUrl = $fileReference->signedUrl(new \DateTime('+7 days')); // Signed URL valid for a day
 
             // Optionally store the file URL in Firebase Database
             $database = Firebase::database();
@@ -255,13 +255,13 @@ class VideoController extends Controller
     public function generateImages(Request $request)
     {
         $replicateApiToken = env('REPLICATE_API_TOKEN'); // Ensure your token is set in .env
-
         $client = new Replicate($replicateApiToken);
 
         // Validate and retrieve the prompt from the request
         $prompt = $request->input('prompt');
 
         try {
+            // Call Replicate API to generate the image
             $output = $client->run(
                 'bytedance/sdxl-lightning-4step:5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637',
                 [
@@ -275,15 +275,11 @@ class VideoController extends Controller
                 ]
             );
 
-            // Assume the output contains an image URL, download it
+            // Assume the output contains an image URL
             $imageUrl = $output[0]; // Adjust if needed
 
-            // Download the image and convert it to Base64
+            // Download the image and convert to binary
             $imageContent = file_get_contents($imageUrl);
-            $base64Image = base64_encode($imageContent);
-
-            // Decode the Base64 image back to binary for Firebase upload
-            $decodedImage = base64_decode($base64Image);
 
             // Initialize Firebase Storage
             $firebase = (new Factory())
@@ -295,22 +291,27 @@ class VideoController extends Controller
             // Generate a unique filename
             $filename = 'images/' . Str::uuid() . '.png';
 
-            // Upload the decoded PNG image to Firebase Storage
-            $bucket->upload($decodedImage, [
+            // Upload the PNG image to Firebase Storage
+            $bucket->upload($imageContent, [
                 'name' => $filename,
                 'metadata' => [
                     'contentType' => 'image/png',
                 ],
             ]);
 
-            // Generate a signed download URL
+            // Make the uploaded object publicly accessible
             $imageReference = $bucket->object($filename);
-            $expiresAt = new \DateTime('+1 hour'); // Adjust the expiry time as needed
-            $imageUrl = $imageReference->signedUrl($expiresAt);
+            $imageReference->update([
+                'acl' => [],
+            ]);
+            $imageReference->acl()->add('allUsers', 'READER');
 
-            // Return a JSON response with the Firebase URL
+            // Generate the public URL
+            $publicUrl = "https://storage.googleapis.com/{$bucket->name()}/{$filename}";
+
+            // Return the public URL as JSON response
             return response()->json([
-                'result' => $imageUrl,
+                'result' => $publicUrl,
             ]);
         } catch (\Exception $e) {
             // Log the error
@@ -319,10 +320,11 @@ class VideoController extends Controller
             // Return a JSON error response with status code 500
             return response()->json([
                 'error' => 'An error occurred while generating the image.',
-                'message' => $e->getMessage(), // Optional: Include error message for debugging
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
+
     /**
      * Store a newly created resource in storage.
      */
@@ -331,7 +333,7 @@ class VideoController extends Controller
         try {
 
             // Decode the incoming JSON data from the request
-            $videoData = json_decode($request->input('videoData'), true);
+            $videoData = json_encode($request->input('videoData'), true);
 
             // Validate the decoded data
             if (!$videoData) {
@@ -339,28 +341,33 @@ class VideoController extends Controller
             }
             // Validate the incoming request
             $request->validate([
-                'video_audio' => 'required|string',
-                'video_images' => 'required|array',
-                'video_images.*' => 'url',
-                'video_script' => 'required|array',
-                'video_script.*.imagePrompt' => 'string',
-                'video_script.*.contextText' => 'string',
-                'video_transcript' => 'required|array',
-                'video_transcript.*.text' => 'required|string',
-                'video_transcript.*.start' => 'required|number',
-                'video_transcript.*.end' => 'required|number',
-                'video_transcript.*.confidence' => 'required|number',
+                'videoAudio' => 'required|string',
+                'videoImages' => 'required|array',
+                'videoImages.*' => 'url',
+                'videoScript' => 'required|array',
+                'videoScript.*.imagePrompt' => 'string',
+                'videoScript.*.contextText' => 'string',
+                'videoTranscript' => 'required|array',
+                'videoTranscript.*.text' => 'required|string',
+                'videoTranscript.*.start' => 'required|numeric',
+                'videoTranscript.*.end' => 'required|numeric',
+                'videoTranscript.*.confidence' => 'required|numeric',
+
             ]);
 
             // Extract validated data
             $videoData = $request->only([
-                'video_audio', 'video_images', 'video_script', 'video_transcript',
+                'videoAudio', 'videoImages', 'videoScript', 'videoTranscript',
             ]);
 
             // Save video to the database
-            $video = Video::create(array_merge($videoData, [
-                'user_id' => auth()->id(),
-            ]));
+            $video = Video::create([
+                'videoAudio' => $videoData['videoAudio'],
+                'videoImages' => $videoData['videoImages'],
+                'videoScript' => $videoData['videoScript'],
+                'videoTranscript' => $videoData['videoTranscript'],
+                'user_id' => auth()->user()->id,
+            ]);
 
             return response()->json(['message' => 'Video saved successfully', 'video' => $video], 201);
 
@@ -375,9 +382,21 @@ class VideoController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Video $video)
+    public function getVideo(Request $request)
     {
-        //
+        $video = Video::find($request->query('id'));
+
+        if (!$video) {
+            return response()->json(['error' => 'Video not found'], 404);
+        }
+
+        return response()->json(['video' => $video], 200);
+    }
+
+    public function getAllVideos()
+    {
+        $videos = Video::where('user_id', auth()->user()->id)->get();
+        return response()->json(['videos' => $videos], 200);
     }
 
     /**

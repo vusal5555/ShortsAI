@@ -25,12 +25,15 @@
     },
     "dependencies": {
         "@radix-ui/react-alert-dialog": "^1.1.2",
+        "@radix-ui/react-dialog": "^1.1.2",
         "@radix-ui/react-dropdown-menu": "^2.1.2",
         "@radix-ui/react-select": "^2.1.2",
         "@radix-ui/react-slot": "^1.1.0",
+        "@remotion/cli": "4.0.221",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "lucide-react": "^0.447.0",
+        "remotion": "4.0.221",
         "tailwind-merge": "^2.5.3",
         "tailwindcss-animate": "^1.0.7",
         "uuid": "^10.0.0"

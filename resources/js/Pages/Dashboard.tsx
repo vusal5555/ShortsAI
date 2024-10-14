@@ -3,11 +3,25 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import MainLayout from "@/Layouts/MainLayout";
 
 import { Head, Link, usePage } from "@inertiajs/react";
-import { useState } from "react";
+import axios from "axios";
+import { useEffect, useState } from "react";
 
 export default function Dashboard() {
   const [videoList, setVideoList] = useState<any[]>([]);
   const user = usePage().props.auth.user;
+
+  useEffect(() => {
+    user && getVideos();
+  }, [user]);
+
+  const getVideos = async () => {
+    const res = await axios.get("/get-all-videos");
+
+    setVideoList(res.data);
+  };
+
+  console.log(videoList);
+
   return (
     <>
       <Head title="Dashboard" />

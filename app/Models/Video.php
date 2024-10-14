@@ -10,19 +10,18 @@ class Video extends Model
     use HasFactory;
 
     protected $fillable = [
-        'video_audio',
-        'video_images',
-        'video_script',
-        'video_transcript',
+        'videoAudio',
+        'videoImages',
+        'videoScript',
+        'videoTranscript',
         'user_id',
     ];
 
     protected $casts = [
-        'video_audio' => 'string',
-        'video_images' => 'array',
-        'video_script' => 'array',
-        'video_transcript' => 'array',
-        'user_id' => 'integer',
+        'videoImages' => 'array',
+        'videoScript' => 'array',
+        'videoTranscript' => 'array',
+
     ];
 
     public function user()

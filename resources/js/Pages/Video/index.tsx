@@ -1,5 +1,6 @@
 import Duration from "@/Components/Duration";
 import Loader from "@/Components/Loader";
+import PlayerDialog from "@/Components/PlayerDialog";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SelectStyle from "@/Components/SelectStyle";
 import SelectTopic from "@/Components/SelectTopic";
@@ -20,6 +21,8 @@ const index = (props: Props) => {
   const [transcipt, setTranscript] = useState([]);
   const [images, setImages] = useState<any[]>([]);
   const { videoData, setVideoData } = useContext(VideoContext);
+  const [playVideo, setPlayVideo] = useState(false);
+  const [videoId, setVideoId] = useState();
   const [formData, setFormData] = useState({
     topic: "",
     style: "",
@@ -104,16 +107,16 @@ const index = (props: Props) => {
           });
           console.log(res.data.result);
           images.push(res.data.result);
-
-          setVideoData((prev: any) => ({
-            ...prev,
-            videoImages: images,
-          }));
         } catch (error) {
           console.error("Error generating image:", error);
         }
       }
     }
+
+    setVideoData((prev: any) => ({
+      ...prev,
+      videoImages: images,
+    }));
 
     // setImages(images); // Update the state with the generated images
   };
@@ -122,8 +125,6 @@ const index = (props: Props) => {
     if (Object.keys(videoData).length == 4) {
       saveVideo(videoData);
     }
-
-    console.log(videoData);
   }, [videoData]);
 
   const saveVideo = async (videoData: []) => {
@@ -132,6 +133,9 @@ const index = (props: Props) => {
     const res = await axios.post("/generate-video", videoData);
 
     console.log(res.data);
+
+    setVideoId(res.data.video.id);
+    setPlayVideo(true);
 
     setLoading(false);
   };
@@ -161,6 +165,8 @@ const index = (props: Props) => {
           </form>
         </div>
         <Loader loading={loading}></Loader>
+
+        <PlayerDialog playVideo={playVideo} videoId={videoId}></PlayerDialog>
       </MainLayout>
     </>
   );

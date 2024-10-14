@@ -31,6 +31,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/generate-images', [VideoController::class, 'generateImages'])->name('/generate-images');
 
     Route::post('/generate-video', [VideoController::class, 'generateVideo'])->name('/generate-video');
+    Route::get('/get-video', [VideoController::class, 'getVideo'])->name('/get-video');
+    Route::get('/get-all-videos', [VideoController::class, 'getAllVideos'])->name('/get-all-videos');
 });
 
 require __DIR__ . '/auth.php';
