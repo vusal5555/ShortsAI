@@ -40,6 +40,12 @@ class ProfileController extends Controller
         return Redirect::route('profile.edit');
     }
 
+    public function updateUserCredits(Request $request)
+    {
+        $user = $request->user();
+        $user->credits = $user->credits - 10;
+        $user->save();
+    }
     /**
      * Delete the user's account.
      */

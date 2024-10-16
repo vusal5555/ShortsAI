@@ -64,9 +64,9 @@ class VideoController extends Controller
                 ],
             ],
             'generationConfig' => [
-                'temperature' => 1,
-                'topK' => 64,
-                'topP' => 0.95,
+                'temperature' => 1.8,
+                'topK' => 90,
+                'topP' => 0.98,
                 'maxOutputTokens' => 8192,
                 'responseMimeType' => 'application/json',
             ],

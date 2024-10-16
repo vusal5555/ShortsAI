@@ -38,7 +38,7 @@ export default function Login({
 
       <form
         onSubmit={submit}
-        className="border  border-gray-300 p-10 rounded-lg"
+        className="border border-gray-300 p-10 rounded-lg"
       >
         <div>
           <InputLabel htmlFor="email" value="Email" />
@@ -84,7 +84,14 @@ export default function Login({
           </label>
         </div>
 
-        <div className="mt-4 flex items-center justify-end">
+        <PrimaryButton
+          className="ms-4 bg-primary w-full flex items-center justify-center mt-4"
+          disabled={processing}
+        >
+          Log in
+        </PrimaryButton>
+
+        <div className="mt-4 flex items-center justify-between">
           {canResetPassword && (
             <Link
               href={route("password.request")}
@@ -94,9 +101,12 @@ export default function Login({
             </Link>
           )}
 
-          <PrimaryButton className="ms-4 bg-primary" disabled={processing}>
-            Log in
-          </PrimaryButton>
+          <Link
+            href={route("register")}
+            className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Not Registered?
+          </Link>
         </div>
       </form>
     </GuestLayout>

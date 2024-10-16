@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\VideoController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/generate-video', [VideoController::class, 'generateVideo'])->name('/generate-video');
     Route::get('/get-video', [VideoController::class, 'getVideo'])->name('/get-video');
     Route::get('/get-all-videos', [VideoController::class, 'getAllVideos'])->name('/get-all-videos');
+    Route::patch('/updateUserCredits', [ProfileController::class, 'updateUserCredits'])->name('/updateUserCredits');
+    Route::get('/upgrade', [UpgradePlanController::class, 'showUpgradeScreen'])->name('/upgrade');
 });
 
 require __DIR__ . '/auth.php';

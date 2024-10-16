@@ -18,10 +18,10 @@ export default function Welcome({
   return (
     <>
       <Head title="Welcome" />
-      <div>AI Video Generator</div>
 
-      <TextInput></TextInput>
-      <PrimaryButton className="bg-green-500">Click</PrimaryButton>
+      <div>
+        <h1>This will be the landing page</h1>
+      </div>
     </>
   );
 }

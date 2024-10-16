@@ -32,7 +32,7 @@ export default function UpdateProfileInformation({
   return (
     <section className={className}>
       <header>
-        <h2 className="text-lg font-medium text-gray-900">
+        <h2 className="text-lg  text-primary font-bold uppercase">
           Profile Information
         </h2>
 
@@ -97,7 +97,9 @@ export default function UpdateProfileInformation({
         )}
 
         <div className="flex items-center gap-4">
-          <PrimaryButton disabled={processing}>Save</PrimaryButton>
+          <PrimaryButton className="bg-primary" disabled={processing}>
+            Save
+          </PrimaryButton>
 
           <Transition
             show={recentlySuccessful}

@@ -3,7 +3,7 @@ import { PropsWithChildren } from "react";
 
 export default function Guest({ children }: PropsWithChildren) {
   return (
-    <div className="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0">
+    <div className="flex min-h-screen flex-col items-center  pt-6 sm:justify-center sm:pt-0">
       <div>
         <Link href="/">
           <h2 className="font-bold text-3xl text-primary">Shorts AI</h2>

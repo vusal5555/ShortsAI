@@ -11,6 +11,7 @@ import { Player } from "@remotion/player";
 import RemotionVideo from "./RemotionVideo";
 import PrimaryButton from "./PrimaryButton";
 import DangerButton from "./DangerButton";
+import Loader from "./Loader";
 
 type Video = {
   id: number;
@@ -30,25 +31,23 @@ type Video = {
 };
 
 type Props = {
-  playVideo: boolean;
+  playVideo: boolean | number;
   videoId: number | undefined;
+  onClose: () => void; // Add a callback to handle closing the dialog.
 };
 
-const PlayerDialog = ({ playVideo, videoId }: Props) => {
-  const [openDialog, setOpenDialog] = useState(false);
+const PlayerDialog = ({ playVideo, videoId, onClose }: Props) => {
   const [videoData, setVideoData] = useState<Video | null>(null);
   const [durationInFrame, setDurationInFrame] = useState(100);
+  const [loading, setLoading] = useState(false); // Loading state
 
   useEffect(() => {
-    setOpenDialog(playVideo);
-    if (videoId) getVideo();
-  }, [playVideo, videoId]);
-
-  useEffect(() => {
-    if (videoData) {
-      console.log("Updated video data:", videoData);
+    if (playVideo && videoId) {
+      setLoading(true); // Start loading
+      setVideoData(null); // Reset old video data to prevent flashing
+      getVideo();
     }
-  }, [videoData]);
+  }, [playVideo, videoId]);
 
   const getVideo = async () => {
     try {
@@ -63,37 +62,51 @@ const PlayerDialog = ({ playVideo, videoId }: Props) => {
       }
     } catch (error) {
       console.error("Error fetching video:", error);
+    } finally {
+      setLoading(false); // Stop loading after fetching
     }
   };
 
   return (
-    <Dialog open={openDialog}>
+    <Dialog open={Boolean(playVideo)} onOpenChange={onClose}>
       <DialogContent className="flex items-center justify-center flex-col">
         <DialogHeader>
           <DialogTitle className="text-3xl font-bold my-5 text-center">
             Your video is ready
           </DialogTitle>
-          <DialogDescription>
-            {videoData && (
-              <Player
-                component={RemotionVideo}
-                durationInFrames={Number(durationInFrame.toFixed(0))}
-                compositionWidth={300}
-                compositionHeight={450}
-                fps={30}
-                controls={true}
-                inputProps={{
-                  ...videoData,
-                  setDurationValue: (frameValue) =>
-                    setDurationInFrame(frameValue),
-                }}
-              />
-            )}
 
-            <div className="flex justify-center items-center gap-3 mt-4">
-              <DangerButton>Cancel</DangerButton>
-              <PrimaryButton className="bg-primary">Export</PrimaryButton>
-            </div>
+          <DialogDescription>
+            {loading && <Loader loading={loading} isDisplayed={true}></Loader>}{" "}
+            {/* Show loading message */}
+            {!loading && videoData && (
+              <>
+                <Player
+                  component={RemotionVideo}
+                  durationInFrames={Number(durationInFrame.toFixed(0))}
+                  compositionWidth={300}
+                  compositionHeight={450}
+                  fps={30}
+                  controls={true}
+                  inputProps={{
+                    ...videoData,
+                    setDurationValue: (frameValue) =>
+                      setDurationInFrame(frameValue),
+                  }}
+                />
+
+                <div className="flex justify-center items-center gap-3 mt-4">
+                  <DangerButton
+                    onClick={() => {
+                      onClose(); // Use the onClose callback to close the dialog.
+                    }}
+                  >
+                    Cancel
+                  </DangerButton>
+
+                  <PrimaryButton className="bg-primary">Export</PrimaryButton>
+                </div>
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
       </DialogContent>

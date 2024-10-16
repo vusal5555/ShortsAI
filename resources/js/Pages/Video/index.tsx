@@ -6,155 +6,203 @@ import SelectStyle from "@/Components/SelectStyle";
 import SelectTopic from "@/Components/SelectTopic";
 import { VideoContext } from "@/context/context";
 import MainLayout from "@/Layouts/MainLayout";
-import { Head } from "@inertiajs/react";
+import { Head, usePage } from "@inertiajs/react";
 import axios from "axios";
 import { useContext, useEffect, useState } from "react";
+import { toast } from "sonner";
 // @ts-ignore
 import { v4 as uuidv4 } from "uuid";
 
-type Props = {};
-
-const index = (props: Props) => {
+const Index = () => {
   const [loading, setLoading] = useState(false);
-  const [videoScript, setVideoScript] = useState([]);
   const [audioFileUrl, setAudioFileUrl] = useState("");
-  const [transcipt, setTranscript] = useState([]);
-  const [images, setImages] = useState<any[]>([]);
+  const [transcript, setTranscript] = useState([]);
   const { videoData, setVideoData } = useContext(VideoContext);
   const [playVideo, setPlayVideo] = useState(false);
-  const [videoId, setVideoId] = useState();
+  const [videoId, setVideoId] = useState<number | undefined>();
   const [formData, setFormData] = useState({
     topic: "",
     style: "",
     duration: "",
   });
+  const [videoGenerated, setVideoGenerated] = useState(false); // New state to track video generation
+
+  const user = usePage().props.auth.user;
+  const resetState = () => {
+    setVideoData({}); // Clear video data on reset
+    setAudioFileUrl("");
+    setTranscript([]);
+    setVideoId(undefined);
+  };
+
   const onHandleInputChange = (fieldName: string, fieldValue: string) => {
     setFormData((prev) => ({ ...prev, [fieldName]: fieldValue }));
   };
 
   const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Reset state on new submission
+    if (videoGenerated) return;
+
     setLoading(true);
-    const response = await axios.post("/generate-video-script", {
-      input: `write a script to generate ${formData.duration} seconds video on ${formData.topic}: interesting historical story along with ai image prompt in ${formData.style} format for each scene and give me result in JSON format with imagePrompt and Context Text as field`,
-    });
 
-    setVideoScript(response.data);
+    try {
+      // Validate formData before sending
+      if (!formData.duration || !formData.topic || !formData.style) {
+        throw new Error("Invalid form data");
+      }
 
-    generateAudioFile(response);
-    generateImage(response);
+      const response = await axios.post("/generate-video-script", {
+        input: `write a script to generate ${formData.duration} seconds video on ${formData.topic}: interesting historical story along with ai image prompt in ${formData.style} format for each scene and give me result in JSON format with imagePrompt and Context Text as field`,
+      });
 
-    if (response.data) {
+      // Check content type
+      if (response.headers["content-type"] !== "application/json") {
+        throw new Error("Invalid response format");
+      }
+
       setVideoData((prev: any) => ({
         ...prev,
         videoScript: response.data,
       }));
+
+      console.log(response.data);
+
+      await generateAudioFile(response.data);
+      await generateImage(response.data);
+    } catch (error) {
+      console.error("Error generating video script:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const generateAudioFile = async (response: any) => {
+  const generateAudioFile = async (scriptData: any) => {
     setLoading(true);
-    let script = "";
     const id = uuidv4();
+    const script = scriptData.map((item: any) => item.contextText).join(" ");
 
-    response.data.forEach((item: any) => {
-      script += item.contextText + " ";
-    });
+    try {
+      const res = await axios.post("/generate-audio-transcript", {
+        text: script,
+        id,
+      });
 
-    const res = await axios.post("/generate-audio-transcript", {
-      text: script,
-      id,
-    });
+      const data =
+        typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      setAudioFileUrl(data.url);
+      setTranscript(data.transcript);
 
-    // Check if `res.data` is a string and parse it
-    let data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-
-    // Destructure the parsed response data
-    const { url, transcript } = data; // Corrected 'transcipt' to 'transcript'
-
-    // Update the state with the parsed response data
-    setAudioFileUrl(url);
-
-    // Update the state with the parsed response data
-    setTranscript(transcript); // Ensure 'transcript' is used here
-    setVideoData((prev: any) => ({
-      ...prev,
-      videoAudio: url,
-      videoTranscript: transcript,
-    }));
+      setVideoData((prev: any) => ({
+        ...prev,
+        videoAudio: data.url,
+        videoTranscript: data.transcript,
+      }));
+    } catch (error) {
+      console.error("Error generating audio:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const generateImage = async (response: any) => {
-    const id = uuidv4();
+  const generateImage = async (scriptData: any) => {
     setLoading(true);
-
-    let images = [];
-
-    // Use a Set to keep track of prompts already processed
+    const id = uuidv4();
+    const images: any[] = [];
     const processedPrompts = new Set();
 
-    for (const item of response.data) {
-      const prompt = item.imagePrompt;
+    try {
+      for (const item of scriptData) {
+        const { imagePrompt } = item;
 
-      // Only proceed if the prompt has not been processed yet
-      if (!processedPrompts.has(prompt)) {
-        processedPrompts.add(prompt); // Mark this prompt as processed
-
-        try {
+        if (!processedPrompts.has(imagePrompt)) {
+          processedPrompts.add(imagePrompt);
           const res = await axios.post("/generate-images", {
-            prompt,
+            prompt: imagePrompt,
             id,
           });
-          console.log(res.data.result);
           images.push(res.data.result);
-        } catch (error) {
-          console.error("Error generating image:", error);
         }
       }
+
+      setVideoData((prev: any) => ({
+        ...prev,
+        videoImages: images,
+      }));
+    } catch (error) {
+      console.error("Error generating images:", error);
+    } finally {
+      setLoading(false);
     }
-
-    setVideoData((prev: any) => ({
-      ...prev,
-      videoImages: images,
-    }));
-
-    // setImages(images); // Update the state with the generated images
   };
 
   useEffect(() => {
-    if (Object.keys(videoData).length == 4) {
+    // Reset only if the video hasn't been generated yet
+    if (!videoGenerated) {
+      resetState();
+    }
+  }, [videoGenerated]);
+
+  const saveVideo = async (videoData: any) => {
+    setLoading(true);
+    try {
+      const res = await axios.post("/generate-video", videoData);
+      setVideoId(res.data.video.id);
+      await updateUserCredits();
+      setPlayVideo(true);
+      setVideoGenerated(true);
+    } catch (error) {
+      console.error("Error saving video:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setPlayVideo(false);
+    setVideoId(undefined);
+  };
+
+  const onCreateClickHandler = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (user?.credits > 0) {
+      getVideoScript(e);
+    } else {
+      toast("You do not have enough credits");
+    }
+  };
+
+  const updateUserCredits = async () => {
+    try {
+      await axios.patch("/updateUserCredits");
+      setVideoData(null);
+    } catch (error) {
+      console.error("Error updating user credits:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (videoData && Object.keys(videoData).length === 4) {
       saveVideo(videoData);
     }
   }, [videoData]);
 
-  const saveVideo = async (videoData: []) => {
-    setLoading(true);
-
-    const res = await axios.post("/generate-video", videoData);
-
-    console.log(res.data);
-
-    setVideoId(res.data.video.id);
-    setPlayVideo(true);
-
-    setLoading(false);
-  };
-
   return (
     <>
-      <Head title="Create Video"></Head>
+      <Head title="Create Video" />
       <MainLayout>
-        <div className="md:px-20">
-          <h2 className="font-extrabold text-4xl text-primary text-center">
+        <div>
+          <h2 className="font-extrabold mt-20 uppercase text-4xl text-primary text-center">
             Create New Video
           </h2>
 
-          <form onSubmit={getVideoScript} className="mt-10 shadow-md p-10">
-            <SelectTopic onUserSelect={onHandleInputChange}></SelectTopic>
-
-            <SelectStyle onUserSelect={onHandleInputChange}></SelectStyle>
-
-            <Duration onUserSelect={onHandleInputChange}></Duration>
+          <form
+            onSubmit={onCreateClickHandler}
+            className="mt-10 shadow-md p-10"
+          >
+            <SelectTopic onUserSelect={onHandleInputChange} />
+            <SelectStyle onUserSelect={onHandleInputChange} />
+            <Duration onUserSelect={onHandleInputChange} />
 
             <PrimaryButton
               type="submit"
@@ -164,12 +212,17 @@ const index = (props: Props) => {
             </PrimaryButton>
           </form>
         </div>
-        <Loader loading={loading}></Loader>
 
-        <PlayerDialog playVideo={playVideo} videoId={videoId}></PlayerDialog>
+        <Loader loading={loading} />
+
+        <PlayerDialog
+          onClose={handleCloseDialog}
+          playVideo={playVideo}
+          videoId={videoId}
+        />
       </MainLayout>
     </>
   );
 };
 
-export default index;
+export default Index;

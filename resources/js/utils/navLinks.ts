@@ -28,7 +28,7 @@ const menuOption = [
     id: 4,
     name: "Account",
     icon: CircleUser,
-    link: "/logout",
+    link: "/profile",
   },
 ];
 export default menuOption;
