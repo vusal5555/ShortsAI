@@ -119,7 +119,7 @@ class VideoController extends Controller
                     'role' => 'user',
                     'parts' => [
                         [
-                            'text' => 'write a script to generate 30 seconds video on topic: interesting historical story along with ai image prompt in Realistic format for each scene and give me result in JSON format with imagePrompt and Context Text as field',
+                            'text' => 'write a script to generate 30 seconds video on topic: interesting historical story along with ai image prompt in Realistic format for each scene and give me result in JSON format with imagePrompt and Context Text as field, make sure NSFW content is not included',
                         ],
                     ],
                 ],
