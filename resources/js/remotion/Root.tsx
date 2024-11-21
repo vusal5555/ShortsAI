@@ -5,6 +5,7 @@ import RemotionVideo from "@/Components/RemotionVideo";
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* @ts-ignore */}
       <Composition
         id="Empty"
         component={RemotionVideo}
