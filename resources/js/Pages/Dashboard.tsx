@@ -1,33 +1,17 @@
 import EmptyState from "@/Components/EmptyState";
 import { Loader } from "lucide-react";
-import PrimaryButton from "@/Components/PrimaryButton";
 import VideoList from "@/Components/VideoList";
 import MainLayout from "@/Layouts/MainLayout";
-import { Head, Link, usePage } from "@inertiajs/react";
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { Head } from "@inertiajs/react";
+import { useState } from "react";
+import PaginatonComponent from "@/Components/Pagination";
 
-export default function Dashboard() {
-  const [videoList, setVideoList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true); // Add loading state
-  const user = usePage().props.auth.user;
+type VideoData = {
+  data: any;
+};
 
-  useEffect(() => {
-    if (user) {
-      getVideos();
-    }
-  }, [user]);
-
-  const getVideos = async () => {
-    try {
-      const res = await axios.get("/get-all-videos");
-      setVideoList(res.data.videos);
-    } catch (error) {
-      console.error("Error fetching videos:", error);
-    } finally {
-      setLoading(false); // Stop loading after the data is fetched
-    }
-  };
+export default function Dashboard({ videos }: any) {
+  const [loading, setLoading] = useState(false); // Add loading state
 
   return (
     <>
@@ -36,7 +20,6 @@ export default function Dashboard() {
         <h2 className="text-4xl mt-20 uppercase text-center text-primary font-extrabold">
           Dashboard
         </h2>
-
         <div>
           {loading ? ( // Show loader or placeholder while loading
             <div className="flex justify-center items-center h-screen">
@@ -47,12 +30,13 @@ export default function Dashboard() {
               ></Loader>
             </div>
           ) : // You can replace this with a Loader component if needed
-          videoList.length === 0 ? (
+          videos.length === 0 ? (
             <EmptyState /> // Render EmptyState only if no videos are found
           ) : (
-            <VideoList videoList={videoList} /> // Render VideoList when data is available
+            <VideoList videoList={videos.data} /> // Render VideoList when data is available
           )}
         </div>
+        <PaginatonComponent links={videos.links} />
       </MainLayout>
     </>
   );

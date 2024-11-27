@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\VideoController;
+use App\Models\Video;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -22,7 +23,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
+        $videos = Video::where('user_id', auth()->user()->id)->paginate(8);
+        Log::info('Videos:', [$videos]);
+        return Inertia::render('Dashboard', [
+            'videos' => $videos,
+        ]);
     })->name('/dashboard');
 
     Route::get('/create-new', [VideoController::class, 'index'])->name('/create-new');

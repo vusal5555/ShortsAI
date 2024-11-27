@@ -52,8 +52,10 @@ const Index = () => {
         throw new Error("Invalid form data");
       }
 
+      const input = `Write a script for a ${formData.duration}-second video on "${formData.topic}", including an AI image prompt in the "${formData.style}" style for each scene.`;
+
       const response = await axios.post("/generate-video-script", {
-        input: `write a script to generate ${formData.duration} seconds video on ${formData.topic}: interesting historical story along with ai image prompt in ${formData.style} format for each scene and give me result in JSON format with imagePrompt and Context Text as field`,
+        input: input,
       });
 
       // Check content type

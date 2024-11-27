@@ -9,6 +9,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "google/cloud-secret-manager": "^1.15",
         "google/cloud-text-to-speech": "^1.9",
         "inertiajs/inertia-laravel": "^1.0",
         "kreait/laravel-firebase": "^5.9",

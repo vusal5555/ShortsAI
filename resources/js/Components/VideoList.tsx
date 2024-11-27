@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Thumbnail } from "@remotion/player";
 import RemotionVideo from "./RemotionVideo";
 import PlayerDialog from "./PlayerDialog";

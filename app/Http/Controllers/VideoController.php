@@ -6,14 +6,14 @@ use App\Models\Video;
 use FFI\Exception;
 use Google\Cloud\TextToSpeech\V1\AudioConfig;
 use Google\Cloud\TextToSpeech\V1\AudioEncoding;
-use Google\Cloud\TextToSpeech\V1\SsmlVoiceGender;
+use Google\Cloud\TextToSpeech\V1\Client\TextToSpeechClient;
+use Google\Cloud\TextToSpeech\V1\SsmlVoiceGender; // Firebase Factory for storage
 use Google\Cloud\TextToSpeech\V1\SynthesisInput;
-use Google\Cloud\TextToSpeech\V1\TextToSpeechClient;
 use Google\Cloud\TextToSpeech\V1\VoiceSelectionParams;
 use Http;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Kreait\Firebase\Factory; // Firebase Factory for storage
+use Kreait\Firebase\Factory;
 use Kreait\Laravel\Firebase\Facades\Firebase;
 use Log;
 use SabatinoMasala\Replicate\Replicate;
@@ -34,48 +34,56 @@ class VideoController extends Controller
         $apiKey = env('GEMINI_API_KEY');
         $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={$apiKey}";
 
+        Log::info('API URL:', [$input]);
+
+        $prompt = "{$input}
+
+        Provide the output in strict JSON format, ensuring the following structure:
+
+        [
+            {
+                \"imagePrompt\": \"A vivid and imaginative description of a unique scene. Be as creative and detailed as possible.\",
+                \"contextText\": \"An engaging and innovative text explaining the scene. Add unexpected and intriguing elements to captivate the reader.\"
+            },
+            ...
+        ]
+
+        Avoid redundancy or repetitive ideas. Each description should be fresh, unique, and inspire curiosity. Make sure the JSON is valid, properly escaped, and does not include trailing commas or syntax errors. Validate the output to confirm it is parsable as JSON before returning it.";
+
         $data = [
             'contents' => [
                 [
                     'role' => 'user',
                     'parts' => [
                         [
-                            'text' => 'write a script to generate 30 seconds video on topic: interesting historical story along with ai image prompt in Realistic format for each scene and give me result in JSON format with imagePrompt and Context Text as field, make sure NSFW content is not included',
-                        ],
-                    ],
-                ],
-                [
-                    'role' => 'model',
-                    'parts' => [
-                        [
-                            'text' => "## 30-Second Historical Video Script with AI Image Prompts\n\n**Topic:** The Story of the Rosetta Stone\n\n**JSON Format:**\n\n```json\n[\n  {\n    \"imagePrompt\": \"A close-up shot of the Rosetta Stone in a museum, with museum lighting and a crowd of people looking at it. Realistic style.\",\n    \"contextText\": \"In 1799, a French soldier stumbled upon a curious stone in Egypt. It was the Rosetta Stone, and it would change the course of history.\"\n  },\n  {\n    \"imagePrompt\": \"A dramatic illustration of ancient Egyptian hieroglyphs being deciphered. Realistic style with a focus on intricate details.\",\n    \"contextText\": \"The stone had three scripts: hieroglyphs, demotic, and ancient Greek. It was a key to unlocking the secrets of ancient Egypt.\"\n  },\n  {\n    \"imagePrompt\": \"A portrait of Jean-François Champollion, looking focused and determined. Realistic style with a hint of 19th-century lighting.\",\n    \"contextText\": \"It took years, but finally, Jean-François Champollion cracked the code, deciphering the hieroglyphs and opening up a new understanding of ancient Egyptian civilization.\"\n  },\n  {\n    \"imagePrompt\": \"A montage of images showing different historical artifacts and monuments in Egypt, showcasing the impact of the Rosetta Stone's decipherment. Realistic style.\",\n    \"contextText\": \"The Rosetta Stone was a monumental discovery, allowing us to read the stories of ancient Egypt and learn about their culture, beliefs, and history.\"\n  },\n  {\n    \"imagePrompt\": \"A final shot of the Rosetta Stone in its museum case, with a person gazing at it in awe. Realistic style.\",\n    \"contextText\": \"Today, the Rosetta Stone stands as a testament to the power of knowledge and the enduring legacy of ancient Egypt.\"\n  }\n]\n```",
-                        ],
-                    ],
-                ],
-                [
-                    'role' => 'user',
-                    'parts' => [
-                        [
-                            'text' => $input,
+
+                            'text' => $prompt,
+
                         ],
                     ],
                 ],
             ],
+            // 'generationConfig' => [
+            //     'temperature' => 0.8, // Increase creativity
+            //     'topK' => 40,
+            //     'topP' => 0.85,
+            //     'maxOutputTokens' => 8192,
+            //     'responseMimeType' => 'application/json',
+            // ],
             'generationConfig' => [
-                'temperature' => 0.8,
-                'topK' => 50,
-                'topP' => 0.9,
-                'maxOutputTokens' => 8192,
+                'temperature' => 1.5, // Higher temperature for more randomness
+                'topK' => 0, // Disable top-K sampling for broader exploration
+                'topP' => 0.99, // Encourage diversity with a wider token range
+                'maxOutputTokens' => 1024, // Limit tokens to ensure concise outputs
                 'responseMimeType' => 'application/json',
             ],
+
         ];
 
         try {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
             ])->post($url, $data);
-
-            Log::info('Raw API Response:', [$response->body()]);
 
             if ($response->failed()) {
                 Log::error('API Request Failed', [
@@ -105,6 +113,7 @@ class VideoController extends Controller
             } else {
                 Log::error('Expected content not found in the response.', [$responseJson]);
             }
+
         } catch (\JsonException $e) {
             Log::error('JSON Decode Exception:', [$e->getMessage()]);
             return ['error' => 'Failed to decode JSON.'];
@@ -195,8 +204,10 @@ class VideoController extends Controller
 
     public function generateAudioAndTranscript(Request $request)
     {
-        // Set the path to your Google Cloud credentials file
+
         $credentialsPath = __DIR__ . '/../../../credentials/nodal-algebra-438115-c2-97609a31c69d.json';
+
+        Log::info('Credentials Path:', [$credentialsPath]);
 
         if (file_exists($credentialsPath)) {
             putenv("GOOGLE_APPLICATION_CREDENTIALS=" . $credentialsPath);
@@ -227,7 +238,12 @@ class VideoController extends Controller
             $audioConfig->setAudioEncoding(AudioEncoding::MP3); // Use MP3 format
 
             // Call the Text-to-Speech API
-            $resp = $textToSpeechClient->synthesizeSpeech($input, $voice, $audioConfig);
+            $synthesizeSpeechRequest = new \Google\Cloud\TextToSpeech\V1\SynthesizeSpeechRequest();
+            $synthesizeSpeechRequest->setInput($input);
+            $synthesizeSpeechRequest->setVoice($voice);
+            $synthesizeSpeechRequest->setAudioConfig($audioConfig);
+
+            $resp = $textToSpeechClient->synthesizeSpeech($synthesizeSpeechRequest);
 
             // Save the synthesized audio to a temporary file
             $audioFilePath = storage_path('app/public/test.mp3');
@@ -416,33 +432,4 @@ class VideoController extends Controller
         return response()->json(['video' => $video], 200);
     }
 
-    public function getAllVideos()
-    {
-        $videos = Video::where('user_id', auth()->user()->id)->get();
-        return response()->json(['videos' => $videos], 200);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Video $video)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Video $video)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Video $video)
-    {
-        //
-    }
 }
