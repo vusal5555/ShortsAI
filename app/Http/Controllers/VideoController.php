@@ -205,25 +205,36 @@ class VideoController extends Controller
     public function generateAudioAndTranscript(Request $request)
     {
 
-        $credentialsPath = __DIR__ . '/../../../credentials/nodal-algebra-438115-c2-97609a31c69d.json';
+        $base64Credentials = env('GOOGLE_APPLICATION_CREDENTIALS_BASE64');
 
-        Log::info('Credentials Path:', [$credentialsPath]);
-
-        if (file_exists($credentialsPath)) {
-            putenv("GOOGLE_APPLICATION_CREDENTIALS=" . $credentialsPath);
-        } else {
-            die("Credentials file not found at: " . $credentialsPath . "\n");
+        if (!$base64Credentials) {
+            return response()->json(['error' => 'Base64 credentials missing in .env'], 500);
         }
 
-        $textToSpeechClient = null; // Declare the variable outside of the try block
+        // Decode Base64 and log
+        $decodedJson = base64_decode($base64Credentials);
+        if (!$decodedJson) {
+            return response()->json(['error' => 'Failed to decode Base64 credentials'], 500);
+        }
+
+        $credentials = json_decode($decodedJson, true);
+        if (!$credentials) {
+            return response()->json(['error' => 'Decoded JSON is invalid'], 500);
+        }
+
+        // Log credentials to ensure it's working
+        Log::info('Decoded Credentials:', $credentials);
+
+        // $textToSpeechClient = null; // Declare the variable outside of the try block
 
         $text = $request->input('text');
         $id = $request->input('id');
 
         try {
             // Initialize the Text-to-Speech client
-            $textToSpeechClient = new TextToSpeechClient();
-
+            $textToSpeechClient = new TextToSpeechClient([
+                'credentials' => $credentials, // Directly pass credentials as an array
+            ]);
             // Set the text input to be synthesized
             $input = new SynthesisInput();
             $input->setText($text);
@@ -293,13 +304,26 @@ class VideoController extends Controller
 
     public function generateImages(Request $request)
     {
-        $replicateApiToken = env('REPLICATE_API_TOKEN'); // Ensure your token is set in .env
-        $client = new Replicate($replicateApiToken);
+        $replicateApiToken = env('REPLICATE_API_TOKEN');
+        $firebaseBase64Credentials = env('FIREBASE_CREDENTIALS_BASE64');
 
-        // Validate and retrieve the prompt from the request
-        $prompt = $request->input('prompt');
+        if (!$firebaseBase64Credentials) {
+            return response()->json(['error' => 'Firebase credentials are not configured properly.'], 500);
+        }
+
+        // Decode Base64 credentials
+        $decodedCredentials = json_decode(base64_decode($firebaseBase64Credentials), true);
+        if (!$decodedCredentials) {
+            return response()->json(['error' => 'Failed to decode Firebase credentials.'], 500);
+        }
 
         try {
+            // Initialize the Replicate client
+            $client = new Replicate($replicateApiToken);
+
+            // Validate and retrieve the prompt from the request
+            $prompt = $request->input('prompt');
+
             // Call Replicate API to generate the image
             $output = $client->run(
                 'bytedance/sdxl-lightning-4step:5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637',
@@ -314,15 +338,12 @@ class VideoController extends Controller
                 ]
             );
 
-            // Assume the output contains an image URL
-            $imageUrl = $output[0]; // Adjust if needed
-
-            // Download the image and convert to binary
+            $imageUrl = $output[0]; // Assume the first result is the desired image URL
             $imageContent = file_get_contents($imageUrl);
 
-            // Initialize Firebase Storage
+            // Initialize Firebase Storage with credentials as an array
             $firebase = (new Factory())
-                ->withServiceAccount(base_path('credentials/shortsai-b68d2-07e3adafa0c4.json'));
+                ->withServiceAccount($decodedCredentials);
 
             $storage = $firebase->createStorage();
             $bucket = $storage->getBucket();
@@ -353,14 +374,8 @@ class VideoController extends Controller
                 'result' => $publicUrl,
             ]);
         } catch (\Exception $e) {
-            // Log the error
-            Log::error('Replicate API Error: ' . $e->getMessage());
-
-            // Return a JSON error response with status code 500
-            return response()->json([
-                'error' => 'An error occurred while generating the image.',
-                'message' => $e->getMessage(),
-            ], 500);
+            Log::error('Error generating image: ' . $e->getMessage());
+            return response()->json(['error' => 'An error occurred while generating the image.'], 500);
         }
     }
 
