@@ -261,7 +261,12 @@ class VideoController extends Controller
             file_put_contents($audioFilePath, $resp->getAudioContent());
 
             // Upload the audio file to Firebase Storage
-            $firebaseStorage = Firebase::storage();
+
+            $firebaseFactory = (new Factory())
+                ->withServiceAccount($credentials);
+            $firebaseStorage = $firebaseFactory->createStorage();
+
+            // $firebaseStorage = Firebase::storage();
             $bucket = $firebaseStorage->getBucket();
 
             $firebaseFilePath = 'audios/test_' . $id . '.mp3'; // Path in Firebase Storage
