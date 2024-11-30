@@ -344,7 +344,7 @@ class VideoController extends Controller
             // Initialize Firebase Storage with credentials as an array
             $firebase = (new Factory())
                 ->withServiceAccount($decodedCredentials)
-                ->withProjectId($decodedCredentials['project_id']);
+                ->withProjectId(env('PROJECT_ID'));
 
             $storage = $firebase->createStorage();
             $bucket = $storage->getBucket();
