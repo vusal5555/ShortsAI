@@ -29,6 +29,81 @@ class VideoController extends Controller
         return Inertia::render('Video/index', );
     }
 
+    // public function generateContent($input)
+    // {
+    //     $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
+    //     $url = "https://api.groq.com/openai/v1/chat/completions"; // GROQ API URL
+
+    //     Log::info('API URL:', [$input]);
+
+    //     // Prompt to ensure the response is in the desired format, with imagePrompt and contextText
+    //     $prompt = "{$input}
+
+    //     Your response must adhere to the following requirements:
+
+    //     1. Output a **single JSON array** of objects, each containing:
+    //         - `imagePrompt`: A vivid and imaginative description of a scene.
+    //         - `contextText`: A creative story or narrative related to the scene.
+
+    //     2. The response **must only be the JSON array** itself. Do not:
+    //         - Wrap the array in an additional array.
+    //         - Add any introductory or explanatory text, such as 'Here is your JSON response.'
+    //         - Include any notes, comments, or explanations.
+
+    //     3. The JSON must pass strict validation:
+    //         - No trailing commas
+    //         - No additional wrapping or comments
+    //         - No missing brackets or keys
+
+    //     4. Format example (strictly follow this structure):
+    //     [
+    //         {
+    //             \"imagePrompt\": \"A vivid scene description.\",
+    //             \"contextText\": \"A corresponding story or explanation.\"
+    //         },
+    //         {
+    //             \"imagePrompt\": \"Another vivid scene description.\",
+    //             \"contextText\": \"Another corresponding story.\"
+    //         }
+    //     ]
+
+    //     5. Ensure the JSON is valid, properly escaped, and free of syntax errors.
+
+    //     Your output should be exactly the JSON array above, without any extra wrapping or text.";
+
+    //     // Create the message data for the GROQ API request
+    //     $messages = [
+    //         [
+    //             'role' => 'user',
+    //             'content' => $prompt,
+    //         ],
+    //     ];
+
+    //     // Prepare the data for the GROQ API request
+    //     $data = [
+    //         'model' => 'llama3-8b-8192', // Model name for the GROQ API
+    //         'messages' => $messages,
+    //     ];
+
+    //     try {
+    //         $response = Http::withHeaders([
+    //             'Content-Type' => 'application/json',
+    //             'Authorization' => "Bearer {$apiKey}", // Adding the Authorization header with the API key
+    //         ])->post($url, $data);
+
+    //         // Log the full response for troubleshooting
+    //         // Log::info('API Response:', [$response->json()]);
+
+    //         $output = $response->json()['choices'][0]['message']['content'];
+
+    //         return $output;
+
+    //     } catch (\Exception $e) {
+    //         Log::error('Exception occurred:', [$e->getMessage()]);
+    //         return ['error' => 'An unexpected error occurred.'];
+    //     }
+    // }
+
     public function generateContent($input)
     {
         $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
@@ -36,72 +111,118 @@ class VideoController extends Controller
 
         Log::info('API URL:', [$input]);
 
-        // Prompt to ensure the response is in the desired format, with imagePrompt and contextText
-        $prompt = "{$input}
-
-        Your response must adhere to the following requirements:
-
-        1. Output a **single JSON array** of objects, each containing:
-            - `imagePrompt`: A vivid and imaginative description of a scene.
-            - `contextText`: A creative story or narrative related to the scene.
-
-        2. The response **must only be the JSON array** itself. Do not:
-            - Wrap the array in an additional array.
-            - Add any introductory or explanatory text, such as 'Here is your JSON response.'
-            - Include any notes, comments, or explanations.
-
-        3. The JSON must pass strict validation:
-            - No trailing commas
-            - No additional wrapping or comments
-            - No missing brackets or keys
-
-        4. Format example (strictly follow this structure):
-        [
-            {
-                \"imagePrompt\": \"A vivid scene description.\",
-                \"contextText\": \"A corresponding story or explanation.\"
-            },
-            {
-                \"imagePrompt\": \"Another vivid scene description.\",
-                \"contextText\": \"Another corresponding story.\"
-            }
-        ]
-
-        5. Ensure the JSON is valid, properly escaped, and free of syntax errors.
-
-        Your output should be exactly the JSON array above, without any extra wrapping or text.";
+        // Define the tool for JSON validation and sanitization
+        $tools = [
+            [
+                "type" => "function",
+                "function" => [
+                    "name" => "validate_json",
+                    "description" => "Validates and fixes JSON structure to ensure it's a valid array.",
+                    "parameters" => [
+                        "type" => "object",
+                        "properties" => [
+                            "json_input" => [
+                                "type" => "string",
+                                "description" => "The raw JSON string to validate and fix.",
+                            ],
+                        ],
+                        "required" => ["json_input"],
+                    ],
+                ],
+            ],
+        ];
 
         // Create the message data for the GROQ API request
         $messages = [
             [
+                'role' => 'system',
+                'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.",
+            ],
+            [
                 'role' => 'user',
-                'content' => $prompt,
+                'content' => "{$input}
+
+            Your response must adhere to the following requirements:
+            1. Output a **single JSON array** of objects, each containing:
+                - `imagePrompt`: A vivid and imaginative description of a scene.
+                - `contextText`: A creative story or narrative related to the scene.
+            2. The response **must only be the JSON array** itself. Do not:
+                - Wrap the array in an additional array.
+                - Add any introductory or explanatory text, such as 'Here is your JSON response.'
+                - Include any notes, comments, or explanations.
+            3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.",
             ],
         ];
 
-        // Prepare the data for the GROQ API request
         $data = [
-            'model' => 'llama3-8b-8192', // Model name for the GROQ API
+            'model' => 'llama3-groq-70b-8192-tool-use-preview', // Tool-use compatible model
             'messages' => $messages,
+            'tools' => $tools, // Include tools for the model to use
+            'tool_choice' => 'auto', // Let the model decide whether to use tools
+            'max_tokens' => 4096,
         ];
 
         try {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-                'Authorization' => "Bearer {$apiKey}", // Adding the Authorization header with the API key
+                'Authorization' => "Bearer {$apiKey}",
             ])->post($url, $data);
 
-            // Log the full response for troubleshooting
-            // Log::info('API Response:', [$response->json()]);
+            // Log the raw response for debugging
+            Log::info('API Raw Response:', [$response->body()]);
 
-            $output = $response->json()['choices'][0]['message']['content'];
+            $responseData = $response->json();
 
+            // Check if the model decided to use a tool
+            if (isset($responseData['choices'][0]['message']['tool_calls'])) {
+                foreach ($responseData['choices'][0]['message']['tool_calls'] as $toolCall) {
+                    if ($toolCall['function']['name'] === 'validate_json') {
+                        // Extract arguments and call the tool
+                        $jsonInput = json_decode($toolCall['function']['arguments'], true)['json_input'];
+                        $fixedJson = $this->validateJson($jsonInput);
+
+                        // Log the fixed JSON for debugging
+                        Log::info('Fixed JSON:', [$fixedJson]);
+
+                        return $fixedJson;
+                    }
+                }
+            }
+
+            // Fallback to the raw content if no tools were used
+            $output = $responseData['choices'][0]['message']['content'];
             return $output;
 
         } catch (\Exception $e) {
             Log::error('Exception occurred:', [$e->getMessage()]);
             return ['error' => 'An unexpected error occurred.'];
         }
+    }
+
+/**
+ * A helper function to manually validate and fix JSON if needed.
+ */
+    private function validateJson($jsonInput)
+    {
+        $decoded = json_decode($jsonInput);
+
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return json_encode($decoded, JSON_PRETTY_PRINT);
+        }
+
+        // Attempt to fix JSON (e.g., removing trailing commas)
+        $fixed = preg_replace('/,\s*([\]}])/', '$1', $jsonInput);
+
+        // Retry decoding
+        $decoded = json_decode($fixed);
+
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return json_encode($decoded, JSON_PRETTY_PRINT);
+        }
+
+        // Log error if unable to fix
+        Log::error('Failed to fix JSON:', [json_last_error_msg()]);
+        return ['error' => 'Invalid JSON could not be fixed.'];
     }
 
     public function generateVideoScript(Request $request)
