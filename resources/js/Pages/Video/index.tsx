@@ -39,39 +39,119 @@ const Index = () => {
     setFormData((prev) => ({ ...prev, [fieldName]: fieldValue }));
   };
 
+  // const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+
+  //   if (videoGenerated) return;
+
+  //   setLoading(true);
+
+  //   try {
+  //     if (!formData.duration || !formData.topic || !formData.style) {
+  //       throw new Error("Invalid form data");
+  //     }
+
+  //     const input = `Write a script for a ${formData.duration}-second video on "${formData.topic}", including an AI image prompt in the "${formData.style}" style for each scene.`;
+
+  //     console.log("Sending input to server:", input);
+
+  //     const response = await axios.post("/generate-video-script", { input });
+
+  //     console.log("Full response:", response);
+
+  //     // Change this line to directly access the data array
+  //     const scriptData = response.data.data;
+
+  //     if (scriptData && Array.isArray(scriptData)) {
+  //       setVideoData((prev: any) => ({
+  //         ...prev,
+  //         videoScript: scriptData,
+  //       }));
+  //       console.log("Script Data:", scriptData);
+  //       await generateAudioFile(scriptData);
+  //       await generateImage(scriptData);
+  //     } else {
+  //       console.error(
+  //         "Expected scriptData to be an array, but got:",
+  //         scriptData
+  //       );
+  //     }
+  //   } catch (error) {
+  //     console.error("Error generating video script:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  // const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+
+  //   if (videoGenerated) return;
+
+  //   setLoading(true);
+
+  //   try {
+  //     if (!formData.duration || !formData.topic || !formData.style) {
+  //       throw new Error("Invalid form data");
+  //     }
+
+  //     const input = `Write a script for a ${formData.duration}-second video on "${formData.topic}", including an AI image prompt in the "${formData.style}" style for each scene.`;
+
+  //     const response = await axios.post("/generate-video-script", { input });
+
+  //     const parsedData = JSON.parse(response.data);
+
+  //     console.log("Full response:", parsedData);
+
+  //     await generateAudioFile(parsedData);
+  //     await generateImage(parsedData);
+  //   } catch (error) {
+  //     console.error("Error generating video script:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Reset state on new submission
+
     if (videoGenerated) return;
 
     setLoading(true);
 
     try {
-      // Validate formData before sending
       if (!formData.duration || !formData.topic || !formData.style) {
         throw new Error("Invalid form data");
       }
 
       const input = `Write a script for a ${formData.duration}-second video on "${formData.topic}", including an AI image prompt in the "${formData.style}" style for each scene.`;
 
-      const response = await axios.post("/generate-video-script", {
-        input: input,
-      });
+      const response = await axios.post("/generate-video-script", { input });
 
-      // Check content type
-      if (response.headers["content-type"] !== "application/json") {
-        throw new Error("Invalid response format");
-      }
+      console.log("Raw response:", response.data);
+      console.log("Type of response:", typeof response.data);
+
+      let parsedData: any;
+
+      parsedData = JSON.parse(response.data);
+
+      // Fallback: Attempt to fix the JSON manually
+      const fixedJson = response.data.trim().replace(/,\s*$/, "");
+      console.log("Fixed JSON:", fixedJson);
+
+      parsedData = JSON.parse(fixedJson);
 
       setVideoData((prev: any) => ({
         ...prev,
-        videoScript: response.data,
+        videoScript: parsedData,
       }));
 
-      console.log(response.data);
+      console.log(videoData);
+      await generateAudioFile(parsedData);
+      await generateImage(parsedData);
 
-      await generateAudioFile(response.data);
-      await generateImage(response.data);
+      if (!Array.isArray(parsedData)) {
+        throw new Error("API response is not an array of objects");
+      }
     } catch (error) {
       console.error("Error generating video script:", error);
     } finally {
@@ -80,6 +160,7 @@ const Index = () => {
   };
 
   const generateAudioFile = async (scriptData: any) => {
+    console.log("Script Data:", scriptData);
     setLoading(true);
     const id = uuidv4();
     const script = scriptData.map((item: any) => item.contextText).join(" ");
@@ -189,6 +270,7 @@ const Index = () => {
     }
   }, [videoData]);
 
+  console.log(formData);
   return (
     <>
       <Head title="Create Video" />

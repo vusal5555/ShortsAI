@@ -31,98 +31,77 @@ class VideoController extends Controller
 
     public function generateContent($input)
     {
-        $apiKey = env('GEMINI_API_KEY');
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={$apiKey}";
+        $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
+        $url = "https://api.groq.com/openai/v1/chat/completions"; // GROQ API URL
 
         Log::info('API URL:', [$input]);
 
+        // Prompt to ensure the response is in the desired format, with imagePrompt and contextText
         $prompt = "{$input}
 
-        Provide the output in strict JSON format, ensuring the following structure:
+        Your response must adhere to the following requirements:
 
+        1. Output a **single JSON array** of objects, each containing:
+            - `imagePrompt`: A vivid and imaginative description of a scene.
+            - `contextText`: A creative story or narrative related to the scene.
+
+        2. The response **must only be the JSON array** itself. Do not:
+            - Wrap the array in an additional array.
+            - Add any introductory or explanatory text, such as 'Here is your JSON response.'
+            - Include any notes, comments, or explanations.
+
+        3. The JSON must pass strict validation:
+            - No trailing commas
+            - No additional wrapping or comments
+            - No missing brackets or keys
+
+        4. Format example (strictly follow this structure):
         [
             {
-                \"imagePrompt\": \"A vivid and imaginative description of a unique scene. Be as creative and detailed as possible.\",
-                \"contextText\": \"An engaging and innovative text explaining the scene. Add unexpected and intriguing elements to captivate the reader.\"
+                \"imagePrompt\": \"A vivid scene description.\",
+                \"contextText\": \"A corresponding story or explanation.\"
             },
-            ...
+            {
+                \"imagePrompt\": \"Another vivid scene description.\",
+                \"contextText\": \"Another corresponding story.\"
+            }
         ]
 
-        Avoid redundancy or repetitive ideas. Each description should be fresh, unique, and inspire curiosity. Make sure the JSON is valid, properly escaped, and does not include trailing commas or syntax errors. Validate the output to confirm it is parsable as JSON before returning it.";
+        5. Ensure the JSON is valid, properly escaped, and free of syntax errors.
 
+        Your output should be exactly the JSON array above, without any extra wrapping or text.";
+
+        // Create the message data for the GROQ API request
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => $prompt,
+            ],
+        ];
+
+        // Prepare the data for the GROQ API request
         $data = [
-            'contents' => [
-                [
-                    'role' => 'user',
-                    'parts' => [
-                        [
-
-                            'text' => $prompt,
-
-                        ],
-                    ],
-                ],
-            ],
-            // 'generationConfig' => [
-            //     'temperature' => 0.8, // Increase creativity
-            //     'topK' => 40,
-            //     'topP' => 0.85,
-            //     'maxOutputTokens' => 8192,
-            //     'responseMimeType' => 'application/json',
-            // ],
-            'generationConfig' => [
-                'temperature' => 1.5, // Higher temperature for more randomness
-                'topK' => 0, // Disable top-K sampling for broader exploration
-                'topP' => 0.99, // Encourage diversity with a wider token range
-                'maxOutputTokens' => 1024, // Limit tokens to ensure concise outputs
-                'responseMimeType' => 'application/json',
-            ],
-
+            'model' => 'llama3-8b-8192', // Model name for the GROQ API
+            'messages' => $messages,
         ];
 
         try {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
+                'Authorization' => "Bearer {$apiKey}", // Adding the Authorization header with the API key
             ])->post($url, $data);
 
-            if ($response->failed()) {
-                Log::error('API Request Failed', [
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-                return ['error' => 'API request failed.'];
-            }
+            // Log the full response for troubleshooting
+            // Log::info('API Response:', [$response->json()]);
 
-            $responseJson = $response->json();
+            $output = $response->json()['choices'][0]['message']['content'];
 
-            // Validate response structure
-            if (isset($responseJson['candidates'][0]['content']['parts'][0]['text'])) {
-                $generatedText = $responseJson['candidates'][0]['content']['parts'][0]['text'];
+            return $output;
 
-                // Clean the text to make it valid JSON
-                $cleanedText = stripslashes($generatedText);
-                $cleanedText = preg_replace('/,\s*}/', '}', $cleanedText); // Fix trailing commas in objects
-                $cleanedText = preg_replace('/,\s*\]/', ']', $cleanedText); // Fix trailing commas in arrays
-
-                Log::info('Cleaned Text:', [$cleanedText]);
-
-                // Decode the cleaned JSON structure
-                $decodedResult = json_decode($cleanedText, true, 512, JSON_THROW_ON_ERROR);
-
-                return $decodedResult;
-            } else {
-                Log::error('Expected content not found in the response.', [$responseJson]);
-            }
-
-        } catch (\JsonException $e) {
-            Log::error('JSON Decode Exception:', [$e->getMessage()]);
-            return ['error' => 'Failed to decode JSON.'];
         } catch (\Exception $e) {
             Log::error('Exception occurred:', [$e->getMessage()]);
             return ['error' => 'An unexpected error occurred.'];
         }
-
-        return ['error' => 'Failed to decode content.'];
     }
 
     public function generateVideoScript(Request $request)
@@ -261,12 +240,7 @@ class VideoController extends Controller
             file_put_contents($audioFilePath, $resp->getAudioContent());
 
             // Upload the audio file to Firebase Storage
-
-            $firebaseFactory = (new Factory())
-                ->withServiceAccount($credentials);
-            $firebaseStorage = $firebaseFactory->createStorage();
-
-            // $firebaseStorage = Firebase::storage();
+            $firebaseStorage = Firebase::storage();
             $bucket = $firebaseStorage->getBucket();
 
             $firebaseFilePath = 'audios/test_' . $id . '.mp3'; // Path in Firebase Storage

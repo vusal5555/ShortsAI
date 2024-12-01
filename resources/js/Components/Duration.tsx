@@ -26,8 +26,8 @@ const Duration = ({ onUserSelect }: Props) => {
           <SelectValue placeholder="Duration" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="30 seconds">30</SelectItem>
-          <SelectItem value="60 seconds">60</SelectItem>
+          <SelectItem value="30">30</SelectItem>
+          <SelectItem value="60">60</SelectItem>
         </SelectContent>
       </Select>
     </div>
