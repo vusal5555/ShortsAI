@@ -39,78 +39,6 @@ const Index = () => {
     setFormData((prev) => ({ ...prev, [fieldName]: fieldValue }));
   };
 
-  // const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-
-  //   if (videoGenerated) return;
-
-  //   setLoading(true);
-
-  //   try {
-  //     if (!formData.duration || !formData.topic || !formData.style) {
-  //       throw new Error("Invalid form data");
-  //     }
-
-  //     const input = `Write a script for a ${formData.duration}-second video on "${formData.topic}", including an AI image prompt in the "${formData.style}" style for each scene.`;
-
-  //     console.log("Sending input to server:", input);
-
-  //     const response = await axios.post("/generate-video-script", { input });
-
-  //     console.log("Full response:", response);
-
-  //     // Change this line to directly access the data array
-  //     const scriptData = response.data.data;
-
-  //     if (scriptData && Array.isArray(scriptData)) {
-  //       setVideoData((prev: any) => ({
-  //         ...prev,
-  //         videoScript: scriptData,
-  //       }));
-  //       console.log("Script Data:", scriptData);
-  //       await generateAudioFile(scriptData);
-  //       await generateImage(scriptData);
-  //     } else {
-  //       console.error(
-  //         "Expected scriptData to be an array, but got:",
-  //         scriptData
-  //       );
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating video script:", error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-  // const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-
-  //   if (videoGenerated) return;
-
-  //   setLoading(true);
-
-  //   try {
-  //     if (!formData.duration || !formData.topic || !formData.style) {
-  //       throw new Error("Invalid form data");
-  //     }
-
-  //     const input = `Write a script for a ${formData.duration}-second video on "${formData.topic}", including an AI image prompt in the "${formData.style}" style for each scene.`;
-
-  //     const response = await axios.post("/generate-video-script", { input });
-
-  //     const parsedData = JSON.parse(response.data);
-
-  //     console.log("Full response:", parsedData);
-
-  //     await generateAudioFile(parsedData);
-  //     await generateImage(parsedData);
-  //   } catch (error) {
-  //     console.error("Error generating video script:", error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const getVideoScript = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -234,6 +162,11 @@ const Index = () => {
       await updateUserCredits();
       setPlayVideo(true);
       setVideoGenerated(true);
+      setFormData({
+        topic: "",
+        style: "",
+        duration: "",
+      }); // Clear form data after video generation
     } catch (error) {
       console.error("Error saving video:", error);
     } finally {
@@ -270,7 +203,6 @@ const Index = () => {
     }
   }, [videoData]);
 
-  console.log(formData);
   return (
     <>
       <Head title="Create Video" />

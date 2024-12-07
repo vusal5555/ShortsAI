@@ -14,7 +14,6 @@ use Http;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Kreait\Firebase\Factory;
-use Kreait\Laravel\Firebase\Facades\Firebase;
 use Log;
 use SabatinoMasala\Replicate\Replicate;
 use Str;
@@ -29,7 +28,6 @@ class VideoController extends Controller
         return Inertia::render('Video/index', );
     }
 
-    // public function generateContent($input)
     // {
     //     $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
     //     $url = "https://api.groq.com/openai/v1/chat/completions"; // GROQ API URL
@@ -302,16 +300,114 @@ class VideoController extends Controller
         }
     }
 
+    // public function generateAudioAndTranscript(Request $request)
+    // {
+
+    //     $base64Credentials = env('GOOGLE_APPLICATION_CREDENTIALS_BASE64');
+
+    //     if (!$base64Credentials) {
+    //         return response()->json(['error' => 'Base64 credentials missing in .env'], 500);
+    //     }
+
+    //     // Decode Base64 and log
+    //     $decodedJson = base64_decode($base64Credentials);
+    //     if (!$decodedJson) {
+    //         return response()->json(['error' => 'Failed to decode Base64 credentials'], 500);
+    //     }
+
+    //     $credentials = json_decode($decodedJson, true);
+    //     if (!$credentials) {
+    //         return response()->json(['error' => 'Decoded JSON is invalid'], 500);
+    //     }
+
+    //     // Log credentials to ensure it's working
+    //     Log::info('Decoded Credentials:', $credentials);
+
+    //     // $textToSpeechClient = null; // Declare the variable outside of the try block
+
+    //     $text = $request->input('text');
+    //     $id = $request->input('id');
+
+    //     try {
+    //         // Initialize the Text-to-Speech client
+    //         $textToSpeechClient = new TextToSpeechClient([
+    //             'credentials' => $credentials, // Directly pass credentials as an array
+    //         ]);
+    //         // Set the text input to be synthesized
+    //         $input = new SynthesisInput();
+    //         $input->setText($text);
+
+    //         // Select the voice parameters
+    //         $voice = new VoiceSelectionParams();
+    //         $voice->setLanguageCode('en-US'); // Change this to your desired language code
+    //         $voice->setSsmlGender(SsmlVoiceGender::FEMALE); // Change this to your desired gender
+
+    //         // Set the audio configuration
+    //         $audioConfig = new AudioConfig();
+    //         $audioConfig->setAudioEncoding(AudioEncoding::MP3); // Use MP3 format
+
+    //         // Call the Text-to-Speech API
+    //         $synthesizeSpeechRequest = new \Google\Cloud\TextToSpeech\V1\SynthesizeSpeechRequest();
+    //         $synthesizeSpeechRequest->setInput($input);
+    //         $synthesizeSpeechRequest->setVoice($voice);
+    //         $synthesizeSpeechRequest->setAudioConfig($audioConfig);
+
+    //         $resp = $textToSpeechClient->synthesizeSpeech($synthesizeSpeechRequest);
+
+    //         // Save the synthesized audio to a temporary file
+    //         $audioFilePath = storage_path('app/public/test.mp3');
+    //         file_put_contents($audioFilePath, $resp->getAudioContent());
+
+    //         // Upload the audio file to Firebase Storage
+    //         $firebaseStorage = Firebase::storage();
+    //         $bucket = $firebaseStorage->getBucket();
+
+    //         $firebaseFilePath = 'audios/test_' . $id . '.mp3'; // Path in Firebase Storage
+    //         $file = fopen($audioFilePath, 'r');
+    //         $bucket->upload($file, ['name' => $firebaseFilePath]);
+
+    //         // Get the public URL of the uploaded file
+    //         $fileReference = $bucket->object($firebaseFilePath);
+    //         $fileUrl = $fileReference->signedUrl(new \DateTime('+7 days')); // Signed URL valid for a day
+
+    //         // Optionally store the file URL in Firebase Database
+    //         $database = Firebase::database();
+    //         $database->getReference('audio_files/' . $id)->set([
+    //             'url' => $fileUrl,
+    //             'created_at' => now(),
+    //         ]);
+
+    //         // Call AssemblyAI for transcription
+    //         $assemblyApiKey = env('ASSEMBLYAI_API_KEY'); // Make sure to set this in your .env
+    //         $uploadUrl = $this->uploadFile($assemblyApiKey, $audioFilePath);
+    //         $transcript = $this->createTranscript($assemblyApiKey, $uploadUrl);
+
+    //         // Optionally return the transcript along with the audio URL
+    //         return response()->json([
+    //             'message' => 'Audio generated, uploaded, and transcribed successfully.',
+    //             'url' => $fileUrl,
+    //             'transcript' => $transcript['words'] ?? 'No transcript available.',
+    //         ], 200);
+
+    //     } catch (Exception $e) {
+    //         // Handle any exceptions that occur
+    //         return response()->json(['error' => $e->getMessage()], 500);
+    //     } finally {
+    //         // Close the client if it was initialized
+    //         if ($textToSpeechClient) {
+    //             $textToSpeechClient->close();
+    //         }
+    //     }
+    // }
     public function generateAudioAndTranscript(Request $request)
     {
-
         $base64Credentials = env('GOOGLE_APPLICATION_CREDENTIALS_BASE64');
 
         if (!$base64Credentials) {
             return response()->json(['error' => 'Base64 credentials missing in .env'], 500);
         }
 
-        // Decode Base64 and log
+        // Decode Base64 credentials
         $decodedJson = base64_decode($base64Credentials);
         if (!$decodedJson) {
             return response()->json(['error' => 'Failed to decode Base64 credentials'], 500);
@@ -325,24 +421,23 @@ class VideoController extends Controller
         // Log credentials to ensure it's working
         Log::info('Decoded Credentials:', $credentials);
 
-        // $textToSpeechClient = null; // Declare the variable outside of the try block
-
         $text = $request->input('text');
         $id = $request->input('id');
 
         try {
             // Initialize the Text-to-Speech client
             $textToSpeechClient = new TextToSpeechClient([
-                'credentials' => $credentials, // Directly pass credentials as an array
+                'credentials' => $credentials, // Pass credentials as an array
             ]);
-            // Set the text input to be synthesized
+
+            // Set the text input
             $input = new SynthesisInput();
             $input->setText($text);
 
             // Select the voice parameters
             $voice = new VoiceSelectionParams();
-            $voice->setLanguageCode('en-US'); // Change this to your desired language code
-            $voice->setSsmlGender(SsmlVoiceGender::FEMALE); // Change this to your desired gender
+            $voice->setLanguageCode('en-US');
+            $voice->setSsmlGender(SsmlVoiceGender::FEMALE);
 
             // Set the audio configuration
             $audioConfig = new AudioConfig();
@@ -360,43 +455,55 @@ class VideoController extends Controller
             $audioFilePath = storage_path('app/public/test.mp3');
             file_put_contents($audioFilePath, $resp->getAudioContent());
 
-            // Upload the audio file to Firebase Storage
-            $firebaseStorage = Firebase::storage();
-            $bucket = $firebaseStorage->getBucket();
+            // Initialize Firebase with credentials as an array
+            $firebase = (new Factory())
+                ->withServiceAccount($credentials)
+                ->withDatabaseUri('https://shortsai-b68d2-default-rtdb.europe-west1.firebasedatabase.app/');
 
-            $firebaseFilePath = 'audios/test_' . $id . '.mp3'; // Path in Firebase Storage
+            $storage = $firebase->createStorage();
+            $bucket = $storage->getBucket();
+
+            $firebaseFilePath = 'audios/test_' . $id . '.mp3';
             $file = fopen($audioFilePath, 'r');
-            $bucket->upload($file, ['name' => $firebaseFilePath]);
+            $bucket->upload($file, [
+                'name' => $firebaseFilePath,
+                'metadata' => [
+                    'contentType' => 'audio/mpeg',
+                ],
+            ]);
 
-            // Get the public URL of the uploaded file
+            // Make the uploaded object publicly accessible
             $fileReference = $bucket->object($firebaseFilePath);
-            $fileUrl = $fileReference->signedUrl(new \DateTime('+7 days')); // Signed URL valid for a day
+            $fileReference->update([
+                'acl' => [],
+            ]);
+            $fileReference->acl()->add('allUsers', 'READER');
 
-            // Optionally store the file URL in Firebase Database
-            $database = Firebase::database();
+            // Generate the public URL
+            $publicUrl = "https://storage.googleapis.com/{$bucket->name()}/{$firebaseFilePath}";
+
+            // Store the file URL in Firebase Database
+            $database = $firebase->createDatabase();
             $database->getReference('audio_files/' . $id)->set([
-                'url' => $fileUrl,
+                'url' => $publicUrl,
                 'created_at' => now(),
             ]);
 
             // Call AssemblyAI for transcription
-            $assemblyApiKey = env('ASSEMBLYAI_API_KEY'); // Make sure to set this in your .env
+            $assemblyApiKey = env('ASSEMBLYAI_API_KEY');
             $uploadUrl = $this->uploadFile($assemblyApiKey, $audioFilePath);
             $transcript = $this->createTranscript($assemblyApiKey, $uploadUrl);
 
-            // Optionally return the transcript along with the audio URL
             return response()->json([
                 'message' => 'Audio generated, uploaded, and transcribed successfully.',
-                'url' => $fileUrl,
+                'url' => $publicUrl,
                 'transcript' => $transcript['words'] ?? 'No transcript available.',
             ], 200);
 
         } catch (Exception $e) {
-            // Handle any exceptions that occur
             return response()->json(['error' => $e->getMessage()], 500);
         } finally {
-            // Close the client if it was initialized
-            if ($textToSpeechClient) {
+            if (isset($textToSpeechClient)) {
                 $textToSpeechClient->close();
             }
         }
