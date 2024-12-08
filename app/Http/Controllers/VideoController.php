@@ -134,7 +134,8 @@ class VideoController extends Controller
         $messages = [
             [
                 'role' => 'system',
-                'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.",
+                'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.  Follow the user's instructions and DO NOT produce any NSFW content.
+                All scenes, prompts, and text must be safe for all audiences.",
             ],
             [
                 'role' => 'user',
