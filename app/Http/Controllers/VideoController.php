@@ -157,23 +157,26 @@ class VideoController extends Controller
             [
                 'role' => 'system',
                 'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.
-            All scenes, prompts, and text must be safe for all audiences.",
+                All scenes, prompts, and text must be safe for all audiences.
+                Do not produce NSFW (Not Safe For Work) content.
+                Keep the response concise enough so that the entire JSON fits within the max token limit.",
             ],
             [
                 'role' => 'user',
                 'content' => "{$input}
 
-            Your response must adhere to the following requirements:
-            1. Output a **single JSON array** of objects, each containing:
-                - `imagePrompt`: A vivid and imaginative description of a scene.
-                - `contextText`: A creative story or narrative related to the scene.
-            2. The response **must only be the JSON array** itself. Do not:
-                - Wrap the array in an additional array.
-                - Add any introductory or explanatory text, such as 'Here is your JSON response.'
-                - Include any notes, comments, or explanations.
-            3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.
-            4. Include a minimum of 5 scenes and a maximum of 10 scenes in the JSON array.
-            5. Do not produce NSFW content.",
+                Your response must adhere to the following requirements:
+                1. Output a **single JSON array** of objects, each containing:
+                    - `imagePrompt`: A vivid and imaginative description of a scene.
+                    - `contextText`: A creative story or narrative related to the scene.
+                2. The response **must only be the JSON array** itself. Do not:
+                    - Wrap the array in an additional array.
+                    - Add any introductory or explanatory text, such as 'Here is your JSON response.'
+                    - Include any notes, comments, or explanations.
+                3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.
+                4. Include a minimum of 5 scenes and a maximum of 10 scenes in the JSON array.
+                5. Do not produce NSFW content.
+                6. Ensure that the JSON response, with all its scenes and details, fits within the maximum token constraints by keeping descriptions concise while still meeting all requirements.",
             ],
         ];
 
