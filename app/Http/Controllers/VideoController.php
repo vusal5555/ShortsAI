@@ -156,7 +156,7 @@ class VideoController extends Controller
         $messages = [
             [
                 'role' => 'system',
-                'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.  Follow the user's instructions and DO NOT produce any NSFW content.
+                'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.
             All scenes, prompts, and text must be safe for all audiences.",
             ],
             [
@@ -172,7 +172,8 @@ class VideoController extends Controller
                 - Add any introductory or explanatory text, such as 'Here is your JSON response.'
                 - Include any notes, comments, or explanations.
             3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.
-            4. Include a minimum of 5 scenes and a maximum of 10 scenes in the JSON array.",
+            4. Include a minimum of 5 scenes and a maximum of 10 scenes in the JSON array.
+            5. Do not produce NSFW content.",
             ],
         ];
 
