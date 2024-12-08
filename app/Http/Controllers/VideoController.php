@@ -28,88 +28,136 @@ class VideoController extends Controller
         return Inertia::render('Video/index', );
     }
 
-    // {
-    //     $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
-    //     $url = "https://api.groq.com/openai/v1/chat/completions"; // GROQ API URL
+//     public function generateContent($input)
+//     {
+//         $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
+//         $url = "https://api.groq.com/openai/v1/chat/completions"; // GROQ API URL
 
-    //     Log::info('API URL:', [$input]);
+//         Log::info('API URL:', [$input]);
 
-    //     // Prompt to ensure the response is in the desired format, with imagePrompt and contextText
-    //     $prompt = "{$input}
+//         // Define the tool for JSON validation and sanitization
+//         $tools = [
+//             [
+//                 "type" => "function",
+//                 "function" => [
+//                     "name" => "validate_json",
+//                     "description" => "Validates and fixes JSON structure to ensure it's a valid array.",
+//                     "parameters" => [
+//                         "type" => "object",
+//                         "properties" => [
+//                             "json_input" => [
+//                                 "type" => "string",
+//                                 "description" => "The raw JSON string to validate and fix.",
+//                             ],
+//                         ],
+//                         "required" => ["json_input"],
+//                     ],
+//                 ],
+//             ],
+//         ];
 
-    //     Your response must adhere to the following requirements:
+//         // Create the message data for the GROQ API request
+//         $messages = [
+//             [
+//                 'role' => 'system',
+//                 'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.  Follow the user's instructions and DO NOT produce any NSFW content.
+//                 All scenes, prompts, and text must be safe for all audiences.",
+//             ],
+//             [
+//                 'role' => 'user',
+//                 'content' => "{$input}
 
-    //     1. Output a **single JSON array** of objects, each containing:
-    //         - `imagePrompt`: A vivid and imaginative description of a scene.
-    //         - `contextText`: A creative story or narrative related to the scene.
+//             Your response must adhere to the following requirements:
+//             1. Output a **single JSON array** of objects, each containing:
+//                 - `imagePrompt`: A vivid and imaginative description of a scene.
+//                 - `contextText`: A creative story or narrative related to the scene.
+//             2. The response **must only be the JSON array** itself. Do not:
+//                 - Wrap the array in an additional array.
+//                 - Add any introductory or explanatory text, such as 'Here is your JSON response.'
+//                 - Include any notes, comments, or explanations.
+//             3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.",
+//             ],
+//         ];
 
-    //     2. The response **must only be the JSON array** itself. Do not:
-    //         - Wrap the array in an additional array.
-    //         - Add any introductory or explanatory text, such as 'Here is your JSON response.'
-    //         - Include any notes, comments, or explanations.
+//         $data = [
+//             'model' => 'llama3-groq-70b-8192-tool-use-preview', // Tool-use compatible model
+//             'messages' => $messages,
+//             'tools' => $tools, // Include tools for the model to use
+//             'tool_choice' => 'auto', // Let the model decide whether to use tools
+//             'max_tokens' => 4096,
+//         ];
 
-    //     3. The JSON must pass strict validation:
-    //         - No trailing commas
-    //         - No additional wrapping or comments
-    //         - No missing brackets or keys
+//         try {
+//             $response = Http::withHeaders([
+//                 'Content-Type' => 'application/json',
+//                 'Authorization' => "Bearer {$apiKey}",
+//             ])->post($url, $data);
 
-    //     4. Format example (strictly follow this structure):
-    //     [
-    //         {
-    //             \"imagePrompt\": \"A vivid scene description.\",
-    //             \"contextText\": \"A corresponding story or explanation.\"
-    //         },
-    //         {
-    //             \"imagePrompt\": \"Another vivid scene description.\",
-    //             \"contextText\": \"Another corresponding story.\"
-    //         }
-    //     ]
+//             // Log the raw response for debugging
+//             Log::info('API Raw Response:', [$response->body()]);
 
-    //     5. Ensure the JSON is valid, properly escaped, and free of syntax errors.
+//             $responseData = $response->json();
 
-    //     Your output should be exactly the JSON array above, without any extra wrapping or text.";
+//             // Check if the model decided to use a tool
+//             if (isset($responseData['choices'][0]['message']['tool_calls'])) {
+//                 foreach ($responseData['choices'][0]['message']['tool_calls'] as $toolCall) {
+//                     if ($toolCall['function']['name'] === 'validate_json') {
+//                         // Extract arguments and call the tool
+//                         $jsonInput = json_decode($toolCall['function']['arguments'], true)['json_input'];
+//                         $fixedJson = $this->validateJson($jsonInput);
 
-    //     // Create the message data for the GROQ API request
-    //     $messages = [
-    //         [
-    //             'role' => 'user',
-    //             'content' => $prompt,
-    //         ],
-    //     ];
+//                         // Log the fixed JSON for debugging
+//                         Log::info('Fixed JSON:', [$fixedJson]);
 
-    //     // Prepare the data for the GROQ API request
-    //     $data = [
-    //         'model' => 'llama3-8b-8192', // Model name for the GROQ API
-    //         'messages' => $messages,
-    //     ];
+//                         return $fixedJson;
+//                     }
+//                 }
+//             }
 
-    //     try {
-    //         $response = Http::withHeaders([
-    //             'Content-Type' => 'application/json',
-    //             'Authorization' => "Bearer {$apiKey}", // Adding the Authorization header with the API key
-    //         ])->post($url, $data);
+//             // Fallback to the raw content if no tools were used
+//             $output = $responseData['choices'][0]['message']['content'];
+//             return $output;
 
-    //         // Log the full response for troubleshooting
-    //         // Log::info('API Response:', [$response->json()]);
+//         } catch (\Exception $e) {
+//             Log::error('Exception occurred:', [$e->getMessage()]);
+//             return ['error' => 'An unexpected error occurred.'];
+//         }
+//     }
 
-    //         $output = $response->json()['choices'][0]['message']['content'];
+// /**
+//  * A helper function to manually validate and fix JSON if needed.
+//  */
+//     private function validateJson($jsonInput)
+//     {
+//         $decoded = json_decode($jsonInput);
 
-    //         return $output;
+//         if (json_last_error() === JSON_ERROR_NONE) {
+//             return json_encode($decoded, JSON_PRETTY_PRINT);
+//         }
 
-    //     } catch (\Exception $e) {
-    //         Log::error('Exception occurred:', [$e->getMessage()]);
-    //         return ['error' => 'An unexpected error occurred.'];
-    //     }
-    // }
+//         // Attempt to fix JSON (e.g., removing trailing commas)
+//         $fixed = preg_replace('/,\s*([\]}])/', '$1', $jsonInput);
+
+//         // Retry decoding
+//         $decoded = json_decode($fixed);
+
+//         if (json_last_error() === JSON_ERROR_NONE) {
+//             return json_encode($decoded, JSON_PRETTY_PRINT);
+//         }
+
+//         // Log error if unable to fix
+//         Log::error('Failed to fix JSON:', [json_last_error_msg()]);
+//         return ['error' => 'Invalid JSON could not be fixed.'];
+//     }
 
     public function generateContent($input)
     {
         $apiKey = env('GROQ_API_KEY'); // Use the API key for GROQ
         $url = "https://api.groq.com/openai/v1/chat/completions"; // GROQ API URL
 
-        Log::info('API URL:', [$input]);
+        Log::info('API Input:', [$input]);
 
-        // Define the tool for JSON validation and sanitization
+        // Tools definition
         $tools = [
             [
                 "type" => "function",
@@ -128,14 +176,33 @@ class VideoController extends Controller
                     ],
                 ],
             ],
+            [
+                "type" => "function",
+                "function" => [
+                    "name" => "moderate_prompt",
+                    "description" => "Checks the prompt for NSFW content and modifies it if needed.",
+                    "parameters" => [
+                        "type" => "object",
+                        "properties" => [
+                            "prompt" => [
+                                "type" => "string",
+                                "description" => "The prompt to moderate.",
+                            ],
+                        ],
+                        "required" => ["prompt"],
+                    ],
+                ],
+            ],
         ];
 
-        // Create the message data for the GROQ API request
         $messages = [
             [
                 'role' => 'system',
-                'content' => "You are a content generation assistant. Use tools when necessary to validate and fix JSON output.  Follow the user's instructions and DO NOT produce any NSFW content.
-                All scenes, prompts, and text must be safe for all audiences.",
+                'content' => "You are a content generation assistant.
+                Do not produce any NSFW content.
+                All image prompts must be safe for work, containing no nudity, sexual acts, graphic violence, or extreme gore.
+                Use tools when necessary to validate and fix JSON output.
+                If the user prompt suggests NSFW content, call the 'moderate_prompt' tool.",
             ],
             [
                 'role' => 'user',
@@ -143,11 +210,11 @@ class VideoController extends Controller
 
             Your response must adhere to the following requirements:
             1. Output a **single JSON array** of objects, each containing:
-                - `imagePrompt`: A vivid and imaginative description of a scene.
-                - `contextText`: A creative story or narrative related to the scene.
+                - `imagePrompt`: A vivid and imaginative description of a scene, safe for work.
+                - `contextText`: A creative story or narrative related to the scene, also safe for work.
             2. The response **must only be the JSON array** itself. Do not:
                 - Wrap the array in an additional array.
-                - Add any introductory or explanatory text, such as 'Here is your JSON response.'
+                - Add any introductory or explanatory text.
                 - Include any notes, comments, or explanations.
             3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.",
             ],
@@ -156,8 +223,8 @@ class VideoController extends Controller
         $data = [
             'model' => 'llama3-groq-70b-8192-tool-use-preview', // Tool-use compatible model
             'messages' => $messages,
-            'tools' => $tools, // Include tools for the model to use
-            'tool_choice' => 'auto', // Let the model decide whether to use tools
+            'tools' => $tools,
+            'tool_choice' => 'auto',
             'max_tokens' => 4096,
         ];
 
@@ -172,23 +239,31 @@ class VideoController extends Controller
 
             $responseData = $response->json();
 
-            // Check if the model decided to use a tool
+            // Handle potential tool usage
             if (isset($responseData['choices'][0]['message']['tool_calls'])) {
                 foreach ($responseData['choices'][0]['message']['tool_calls'] as $toolCall) {
-                    if ($toolCall['function']['name'] === 'validate_json') {
-                        // Extract arguments and call the tool
-                        $jsonInput = json_decode($toolCall['function']['arguments'], true)['json_input'];
+                    $toolName = $toolCall['function']['name'];
+                    if ($toolName === 'validate_json') {
+                        $args = json_decode($toolCall['function']['arguments'], true);
+                        $jsonInput = $args['json_input'] ?? '';
                         $fixedJson = $this->validateJson($jsonInput);
 
-                        // Log the fixed JSON for debugging
                         Log::info('Fixed JSON:', [$fixedJson]);
-
                         return $fixedJson;
+                    }
+
+                    if ($toolName === 'moderate_prompt') {
+                        $args = json_decode($toolCall['function']['arguments'], true);
+                        $prompt = $args['prompt'] ?? '';
+                        $safePrompt = $this->moderatePrompt($prompt);
+
+                        // Re-call the API with the safe prompt
+                        return $this->generateContent($safePrompt);
                     }
                 }
             }
 
-            // Fallback to the raw content if no tools were used
+            // If no tools used or done using tools
             $output = $responseData['choices'][0]['message']['content'];
             return $output;
 
@@ -199,29 +274,33 @@ class VideoController extends Controller
     }
 
 /**
- * A helper function to manually validate and fix JSON if needed.
+ * Example implementation of validateJson method
  */
     private function validateJson($jsonInput)
     {
-        $decoded = json_decode($jsonInput);
-
-        if (json_last_error() === JSON_ERROR_NONE) {
-            return json_encode($decoded, JSON_PRETTY_PRINT);
+        // Attempt to decode and re-encode to fix structure
+        $data = json_decode($jsonInput, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
+            return json_encode($data);
         }
 
-        // Attempt to fix JSON (e.g., removing trailing commas)
-        $fixed = preg_replace('/,\s*([\]}])/', '$1', $jsonInput);
+        // You could add logic here to fix trailing commas or malformed JSON
+        // For simplicity, returning input if it fails. In reality, try to fix known issues.
+        return $jsonInput;
+    }
 
-        // Retry decoding
-        $decoded = json_decode($fixed);
-
-        if (json_last_error() === JSON_ERROR_NONE) {
-            return json_encode($decoded, JSON_PRETTY_PRINT);
+/**
+ * Example implementation of moderatePrompt method
+ */
+    private function moderatePrompt($prompt)
+    {
+        // Replace or remove NSFW terms
+        $nsfwTerms = ['nudity', 'sexual acts', 'explicit', 'porn', 'gore'];
+        $safePrompt = $prompt;
+        foreach ($nsfwTerms as $term) {
+            $safePrompt = preg_replace("/\b" . preg_quote($term, '/') . "\b/i", 'flowers', $safePrompt);
         }
-
-        // Log error if unable to fix
-        Log::error('Failed to fix JSON:', [json_last_error_msg()]);
-        return ['error' => 'Invalid JSON could not be fixed.'];
+        return $safePrompt;
     }
 
     public function generateVideoScript(Request $request)
