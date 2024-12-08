@@ -161,22 +161,27 @@ class VideoController extends Controller
                 Do not produce NSFW (Not Safe For Work) content.
                 Keep the response concise enough so that the entire JSON fits within the max token limit.",
             ],
+
             [
                 'role' => 'user',
                 'content' => "{$input}
 
                 Your response must adhere to the following requirements:
-                1. Output a **single JSON array** of objects, each containing:
+                1. Output a **single JSON array** of objects, each containing exactly one scene.
+                    Each object must have:
                     - `imagePrompt`: A vivid and imaginative description of a scene.
-                    - `contextText`: A creative story or narrative related to the scene.
-                2. The response **must only be the JSON array** itself. Do not:
+                    - `contextText`: A creative story or narrative related to that scene.
+                2. Produce **no fewer than 5 and no more than 10 scenes total**. Absolutely do not exceed 10 scenes.
+                3. Once you have produced the specified number of scenes (between 5 and 10), end the JSON array immediately. Do not produce additional scenes or any other text after the closing bracket.
+                4. The response **must only be the JSON array** itself. Do not:
                     - Wrap the array in an additional array.
                     - Add any introductory or explanatory text, such as 'Here is your JSON response.'
                     - Include any notes, comments, or explanations.
-                3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.
-                4. Include a minimum of 5 scenes and a maximum of 10 scenes in the JSON array.
-                5. Do not produce NSFW content.
-                6. Ensure that the JSON response, with all its scenes and details, fits within the maximum token constraints by keeping descriptions concise while still meeting all requirements.",
+                5. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.
+                6. Do not produce NSFW content.
+                7. Ensure that the JSON response, with all its scenes and details, fits within the maximum token constraints by keeping descriptions concise.
+                8. If the model is about to produce too many tokens, shorten the descriptions rather than exceeding the scene limit or leaving the JSON unfinished.
+                ",
             ],
         ];
 
