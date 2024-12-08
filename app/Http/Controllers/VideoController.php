@@ -201,6 +201,7 @@ class VideoController extends Controller
                 'content' => "You are a content generation assistant.
                 Do not produce any NSFW content.
                 All image prompts must be safe for work, containing no nudity, sexual acts, graphic violence, or extreme gore.
+                Keep each 'contextText' 1-2 sentences max.
                 Use tools when necessary to validate and fix JSON output.
                 If the user prompt suggests NSFW content, call the 'moderate_prompt' tool.",
             ],
@@ -208,15 +209,15 @@ class VideoController extends Controller
                 'role' => 'user',
                 'content' => "{$input}
 
-            Your response must adhere to the following requirements:
-            1. Output a **single JSON array** of objects, each containing:
-                - `imagePrompt`: A vivid and imaginative description of a scene, safe for work.
-                - `contextText`: A creative story or narrative related to the scene, also safe for work.
-            2. The response **must only be the JSON array** itself. Do not:
-                - Wrap the array in an additional array.
-                - Add any introductory or explanatory text.
-                - Include any notes, comments, or explanations.
-            3. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.",
+                Your response must adhere to the following requirements:
+                1. Output exactly 10 objects in a single JSON array.
+                2. Each object should have 'imagePrompt' and 'contextText', both safe for all audiences.
+                3. Each 'contextText' should be short (1-2 sentences).
+                4. The response must only be the JSON array itself. Do not:
+                    - Wrap the array in an additional array.
+                    - Add any introductory or explanatory text.
+                    - Include any notes, comments, or explanations.
+                5. Validate the JSON using the 'validate_json' tool if needed. The JSON must be valid with no trailing commas, missing brackets, or keys.",
             ],
         ];
 
