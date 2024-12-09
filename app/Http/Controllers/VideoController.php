@@ -333,9 +333,7 @@ class VideoController extends Controller
             // $firebase = (new Factory())
             //     ->withServiceAccount($credentials)
             //     ->withDatabaseUri('https://shortsai-b68d2-default-rtdb.europe-west1.firebasedatabase.app/');
-            $firebase = (new Factory())
-                ->withServiceAccount($credentials)
-                ->withDatabaseUri(env('FIREBASE_DATABASE_URL'));
+         
 
             $storage = $firebase->createStorage();
             $bucket = $storage->getBucket();
