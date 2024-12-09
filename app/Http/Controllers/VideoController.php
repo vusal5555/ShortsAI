@@ -159,28 +159,9 @@ class VideoController extends Controller
         }
     }
 
-/**
- * A helper function to manually validate and fix JSON if needed.
- */
-    // private function validateJson($jsonInput)
-    // {
-    //     $decoded = json_decode($jsonInput);
-    //     if (json_last_error() === JSON_ERROR_NONE) {
-    //         return json_encode($decoded, JSON_PRETTY_PRINT);
-    //     }
-
-    //     // Attempt to remove trailing commas
-    //     $fixed = preg_replace('/,\s*([\]}])/', '$1', $jsonInput);
-    //     $decoded = json_decode($fixed);
-
-    //     if (json_last_error() === JSON_ERROR_NONE) {
-    //         return json_encode($decoded, JSON_PRETTY_PRINT);
-    //     }
-
-    //     Log::error('Failed to fix JSON:', [json_last_error_msg()]);
-    //     return ['error' => 'Invalid JSON could not be fixed.'];
-    // }
-
+    /**
+     * A helper function to manually validate and fix JSON if needed.
+     */
     private function validateJson($jsonInput)
     {
         $decoded = json_decode($jsonInput);
@@ -202,9 +183,9 @@ class VideoController extends Controller
         return ['error' => 'Invalid JSON could not be fixed.'];
     }
 
-/**
- * A helper function to shorten text if necessary.
- */
+    /**
+     * A helper function to shorten text if necessary.
+     */
     private function shortenResponse($text)
     {
         // Implement logic to shorten text. This is a naive example:
@@ -349,9 +330,12 @@ class VideoController extends Controller
             file_put_contents($audioFilePath, $resp->getAudioContent());
 
             // Initialize Firebase with credentials as an array
+            // $firebase = (new Factory())
+            //     ->withServiceAccount($credentials)
+            //     ->withDatabaseUri('https://shortsai-b68d2-default-rtdb.europe-west1.firebasedatabase.app/');
             $firebase = (new Factory())
                 ->withServiceAccount($credentials)
-                ->withDatabaseUri('https://shortsai-b68d2-default-rtdb.europe-west1.firebasedatabase.app/');
+                ->withDatabaseUri(env('FIREBASE_DATABASE_URL'));
 
             $storage = $firebase->createStorage();
             $bucket = $storage->getBucket();
