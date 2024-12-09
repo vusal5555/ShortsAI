@@ -330,10 +330,9 @@ class VideoController extends Controller
             file_put_contents($audioFilePath, $resp->getAudioContent());
 
             // Initialize Firebase with credentials as an array
-            // $firebase = (new Factory())
-            //     ->withServiceAccount($credentials)
-            //     ->withDatabaseUri('https://shortsai-b68d2-default-rtdb.europe-west1.firebasedatabase.app/');
-         
+            $firebase = (new Factory())
+                ->withServiceAccount($credentials)
+                ->withDatabaseUri('https://shortsai-b68d2-default-rtdb.europe-west1.firebasedatabase.app/');
 
             $storage = $firebase->createStorage();
             $bucket = $storage->getBucket();
